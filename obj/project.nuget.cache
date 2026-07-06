@@ -1,8 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "pHmcrrEESDY=",
+  "dgSpecHash": "Ja0FC2X3tT0=",
   "success": true,
-  "projectFilePath": "D:\\Projects\\StockCharts\\StockChartsMvc.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "/workspaces/stockcharts/StockChartsMvc.csproj",
+  "expectedPackageFiles": [
+    "/home/codespace/.nuget/packages/microsoft.netcore.app.ref/9.0.14/microsoft.netcore.app.ref.9.0.14.nupkg.sha512",
+    "/home/codespace/.nuget/packages/microsoft.aspnetcore.app.ref/9.0.14/microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512",
+    "/home/codespace/.nuget/packages/microsoft.netcore.app.host.linux-x64/9.0.14/microsoft.netcore.app.host.linux-x64.9.0.14.nupkg.sha512"
+  ],
   "logs": []
 }
