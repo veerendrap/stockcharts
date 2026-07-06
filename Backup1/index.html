@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSE 500 Charts — Monthly · Weekly · Daily · 1H</title>
+
+<script>
+  // Applied before CSS/paint so a saved theme/density never flashes the
+  // wrong value. Defaults (light theme, compact density) need no attribute
+  // since the stylesheet's :root already defines them.
+  (function () {
+    try {
+      var raw = localStorage.getItem('nseCharts.settings');
+      var s = raw ? JSON.parse(raw) : null;
+      var theme = (s && s.theme) || 'light';
+      var density = (s && s.density) || 'compact';
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      if (density === 'spacious') document.documentElement.setAttribute('data-density', 'spacious');
+    } catch (e) { /* localStorage unavailable — fall back to defaults */ }
+  })();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ Sidebar : NSE 500 list ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div>
+        <div class="brand-mark">
+          <span class="dot"></span>
+          <h1>NSE 500 CHARTS</h1>
+        </div>
+        <div class="brand-sub">M · W · D · 1H quad view</div>
+      </div>
+      <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" id="searchInput" class="search-input" placeholder="Search symbol, company, or type any ticker…" autocomplete="off">
+    </div>
+
+    <div class="pinned-row" id="pinnedNifty" title="Nifty 50 index">
+      <span class="sym">NIFTY 50</span>
+      <span class="sector">Index</span>
+    </div>
+
+    <div class="list-meta">
+      <select id="sortSelect" class="sort-select" title="Sort symbols by">
+        <option value="symbol">Sort: Symbol</option>
+        <option value="sector">Sort: Sector</option>
+      </select>
+      <span id="listMeta">Loading…</span>
+    </div>
+
+    <div class="stock-list" id="stockList">
+      <div class="empty-hint">Loading NSE 500 list…</div>
+    </div>
+
+    <div class="disclosure">
+      Data via Yahoo Finance (unofficial, free). For reference only — not investment advice.
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ============ Main : topbar + chart grid ============ -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+
+        <div id="topbarInfo" style="display:none; align-items:center; gap:14px;" >
+          <div class="sym-block">
+            <div class="big-sym">
+              <span class="symtext">—</span>
+              <span class="exchange-tag">NSE</span>
+            </div>
+            <div class="company-name">Select a symbol from the list</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="price-block" id="priceBlock"></div>
+        <button class="nav-btn" id="prevBtn" disabled title="Previous symbol (↑)">◀</button>
+        <button class="nav-btn" id="nextBtn" disabled title="Next symbol (↓ or Shift+scroll)">▶</button>
+        <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>
+      </div>
+    </div>
+
+    <div class="grid-wrap" id="gridWrap">
+
+      <div class="placeholder" id="placeholder">
+        <span class="big-dot"></span>
+        <h2>Pick a stock to load its charts</h2>
+        <p>
+          Click any symbol on the left, or use <b>↑ / ↓</b> once you've picked one to jump
+          through the list. Holding <b>Shift</b> while scrolling over this area also moves
+          to the next / previous symbol. Every stock loads four synced views —
+          Monthly, Weekly, Daily and 1‑Hour.
+        </p>
+      </div>
+
+      <div class="chart-grid" id="chartGrid" style="display:none;"></div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ============ Settings modal ============ -->
+<div class="modal-scrim" id="settingsScrim">
+  <div class="settings-modal">
+    <div class="settings-head">
+      <h3>Settings</h3>
+      <button class="settings-close" id="settingsClose">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <div class="settings-section">
+        <h4>Appearance</h4>
+        <div class="settings-row">
+          <span class="row-label">Theme</span>
+          <div class="segmented" id="themeSeg">
+            <button data-val="light">Light</button>
+            <button data-val="dark">Dark</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="row-label">Layout density</span>
+          <div class="segmented" id="densitySeg">
+            <button data-val="compact">Compact</button>
+            <button data-val="spacious">Spacious</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section" id="dataSourceSection">
+        <h4>Data source</h4>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Provider</div>
+            <div class="row-hint" id="sourceHint">Where candle data is fetched from</div>
+          </div>
+          <div class="segmented" id="sourceSeg"><!-- populated from datasources.js at runtime --></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Network</h4>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Use CORS proxy</div>
+            <div class="row-hint">Off = fetch Yahoo directly (fails fast unless your browser/network allows it)</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="proxyToggle" checked>
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Chart data</h4>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Bars per chart</div>
+            <div class="row-hint">Most recent candles shown</div>
+          </div>
+          <input type="number" id="barCountInput" class="settings-input" min="20" max="2000" step="10" value="80">
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Price axis decimals</div>
+            <div class="row-hint">Right-side price precision</div>
+          </div>
+          <select id="decimalsSelect" class="settings-select">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Indicators</h4>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">SMA (5)</div>
+            <div class="row-hint">5-period moving average overlay</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="smaToggle" checked>
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">RSI (14)</div>
+            <div class="row-hint">Relative strength sub-panel</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="rsiToggle" checked>
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">MACD (12,26,9)</div>
+            <div class="row-hint">Trend momentum sub-panel</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="macdToggle" checked>
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Startup</h4>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Load Nifty 50 by default</div>
+            <div class="row-hint">Auto-select the index when the page opens</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="niftyToggle" checked>
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h4>Visible panels</h4>
+        <div class="checkbox-grid">
+          <label class="checkbox-item" data-tf="M">
+            <input type="checkbox" class="panel-toggle" data-tf="M" checked>
+            <span>Monthly</span>
+            <span class="chip-dot"></span>
+          </label>
+          <label class="checkbox-item" data-tf="W">
+            <input type="checkbox" class="panel-toggle" data-tf="W" checked>
+            <span>Weekly</span>
+            <span class="chip-dot"></span>
+          </label>
+          <label class="checkbox-item" data-tf="D">
+            <input type="checkbox" class="panel-toggle" data-tf="D" checked>
+            <span>Daily</span>
+            <span class="chip-dot"></span>
+          </label>
+          <label class="checkbox-item" data-tf="H">
+            <input type="checkbox" class="panel-toggle" data-tf="H" checked>
+            <span>1 Hour</span>
+            <span class="chip-dot"></span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- jQuery (CDN) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- Lightweight Charts by TradingView — free, open-source (Apache-2.0),
+     no usage restrictions, no account/key required. -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+<!-- NSE 500 symbol list (embedded, no AJAX needed — works from file://) -->
+<script src="stocks.js"></script>
+
+<!-- Pluggable data-source registry (Yahoo Finance, etc.) — app.js depends
+     on this abstraction rather than any single provider's API directly -->
+<script src="datasources.js"></script>
+
+<!-- App logic -->
+<script src="app.js"></script>
+
+<script>
+  $(function(){ $('#chartGrid').css('display','grid'); });
+</script>
+
+</body>
+</html>
