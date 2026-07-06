@@ -10,9 +10,10 @@
      0. Config
      --------------------------------------------------------- */
 
-  // Chart data is fetched through the HomeController API proxy endpoint
-  // which calls Yahoo Finance server-side, eliminating CORS issues
+  // Chart data and quote metadata are fetched through the HomeController
+  // proxy endpoint, which calls Yahoo Finance server-side and avoids CORS.
   const CONTROLLER_PROXY = "/api/chart-data";
+  const QUOTE_PROXY = "/api/quote-data";
 
   // Timeframes are generic keys — what interval/range string each maps to
   // is entirely up to the active data source (see datasources.js), not
@@ -41,7 +42,7 @@
     rsiEnabled: true,
     macdEnabled: true,
     autoLoadNifty: true,
-    sortMode: "symbol", // "symbol" | "sector"
+    sortMode: "change", // "change" | "symbol" | "sector"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
     visible: { M: true, W: true, D: true, H: true }
@@ -54,9 +55,11 @@
   let STOCKS = [];
   let filtered = [];
   let activeIndex = -1;
+  let quoteCache = {};
   const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist }
   const candleCache = {};  // tfKey -> full (unsliced) candle array for the current symbol
   const candleCacheRange = {}; // tfKey -> Yahoo range string used to fetch the current candleCache
+  const candleMetaCache = {}; // tfKey -> Yahoo meta info for the current symbol
   const activeFetches = {}; // tfKey -> { controllers, symbol } for the in-flight request, so it can be cancelled
   let currentStock = null; // the stock object currently loaded across all panels
   let SETTINGS = loadSettings();
@@ -78,7 +81,7 @@
     // fetched with AJAX, so this works straight off disk (file://) with no
     // local server required.
     const data = window.STOCKS_DATA || [];
-    $("#sortSelect").val(SETTINGS.sortMode || "symbol");
+    $("#sortSelect").val(SETTINGS.sortMode || "change");
     if (!data.length) {
       $("#stockList").html(
         `<div class="empty-hint">Stock list not found.<br>Make sure stocks.js is loaded before app.js in index.html.</div>`
@@ -88,6 +91,7 @@
       filtered = applySort(data);
       renderList(filtered);
       $("#listMeta").text(`${data.length} symbols`);
+      loadChangeDataForList(data);
     }
 
     if (SETTINGS.autoLoadNifty) selectNifty();
@@ -112,19 +116,40 @@
   }
 
   function rowHtml(s, i) {
+    const meta = getQuoteMeta(s);
+    const badge = meta && Number.isFinite(meta.changePct)
+      ? `<span class="move-pill ${meta.changePct > 0 ? "up" : meta.changePct < 0 ? "down" : "flat"}">${fmtPercent(meta.changePct)}</span>`
+      : "";
     return (
       `<div class="stock-row" data-idx="${i}" data-sym="${s.s}">` +
+      `<span class="sym-wrap">` +
       `<span class="sym">${s.s}</span>` +
+      `${badge}` +
+      `</span>` +
       `<span class="sector">${escapeHtml(s.i)}</span>` +
       `</div>`
     );
   }
 
+  function getQuoteMeta(stock) {
+    if (!stock) return null;
+    return quoteCache[stock.s] || quoteCache[stock.s.toUpperCase()] || quoteCache[stock.s.toLowerCase()] || null;
+  }
+
   function applySort(list) {
-    const mode = SETTINGS.sortMode || "symbol";
+    const mode = SETTINGS.sortMode || "change";
     const arr = list.slice();
     if (mode === "sector") {
       arr.sort((a, b) => a.i.localeCompare(b.i) || a.s.localeCompare(b.s));
+    } else if (mode === "change") {
+      arr.sort((a, b) => {
+        const aMeta = getQuoteMeta(a);
+        const bMeta = getQuoteMeta(b);
+        const aPct = aMeta && Number.isFinite(aMeta.changePct) ? aMeta.changePct : Number.NEGATIVE_INFINITY;
+        const bPct = bMeta && Number.isFinite(bMeta.changePct) ? bMeta.changePct : Number.NEGATIVE_INFINITY;
+        if (aPct !== bPct) return bPct - aPct;
+        return a.s.localeCompare(b.s);
+      });
     } else {
       arr.sort((a, b) => a.s.localeCompare(b.s)); // symbol (ticker), alphabetical
     }
@@ -389,20 +414,23 @@
 
   function chartOptions() {
     const border = cssVar("--border");
+    const isMobile = window.innerWidth <= 760;
     return {
       layout: {
         background: { type: "solid", color: cssVar("--panel") },
         textColor: cssVar("--text-dim"),
         fontFamily: "IBM Plex Mono, monospace",
-        fontSize: 11
+        fontSize: isMobile ? 9 : 11
       },
       grid: { vertLines: { color: border }, horzLines: { color: border } },
-      rightPriceScale: { borderColor: border },
-      timeScale: { borderColor: border, timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: border, scaleMargins: { top: 0.05, bottom: 0.05 } },
+      leftPriceScale: { visible: false },
+      timeScale: { borderColor: border, timeVisible: true, secondsVisible: false, tickMarkFormatter: (time) => { if (!time) return ""; const d = new Date(time * 1000); return isMobile ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString(); } },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       autoSize: false,
       handleScroll: true,
-      handleScale: true
+      handleScale: true,
+      localization: { priceFormatter: (price) => { if (price == null || Number.isNaN(price)) return "—"; return price.toFixed(SETTINGS.priceDecimals || 0); } }
     };
   }
 
@@ -716,6 +744,7 @@
     $("#topbarInfo").show();
     $(".big-sym .symtext").text(stock.s.replace(/^\^/, ""));
     $(".company-name").text(stock.n);
+    $(".company-meta").text(stock.i || "—");
     $("#priceBlock").html("");
     Object.keys(candleCache).forEach((k) => delete candleCache[k]);
     Object.keys(candleCacheRange).forEach((k) => delete candleCacheRange[k]);
@@ -763,6 +792,7 @@
         }
         candleCache[tfKey] = candles;
         candleCacheRange[tfKey] = range;
+        candleMetaCache[tfKey] = extractMeta(json);
         renderChartData(tfKey);
       })
       .catch((err) => {
@@ -825,14 +855,18 @@
 
     const last = bars[bars.length - 1];
     const prev = bars.length > 1 ? bars[bars.length - 2] : last;
-    let headline = `O <b>${fmt(last.open)}</b> H <b>${fmt(last.high)}</b> L <b>${fmt(last.low)}</b> C <b>${fmt(last.close)}</b>`;
+    const change = last.close - prev.close;
+    const pct = prev.close ? (change / prev.close) * 100 : 0;
+    const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
+    const changeText = `${change > 0 ? "+" : change < 0 ? "-" : ""}${fmt(Math.abs(change))} (${pct >= 0 ? "+" : "-"}${fmt(Math.abs(pct))}%)`;
+    let headline = `<span class="panel-change ${dir}">Δ ${changeText}</span>`;
     if (SETTINGS.rsiEnabled && rsiWin.length) headline += ` <span>RSI ${fmt(rsiWin[rsiWin.length - 1].value)}</span>`;
     if (SETTINGS.macdEnabled && macdWin.length && sigWin.length) {
       headline += ` <span>MACD ${fmt(macdWin[macdWin.length - 1].value)}/${fmt(sigWin[sigWin.length - 1].value)}</span>`;
     }
     $(`#ohlc-${tfKey}`).html(headline);
 
-    if (tfKey === "D") updateTopbarPrice(last, prev);
+    if (tfKey === "D") updateTopbarPrice(last, prev, candleMetaCache[tfKey]);
   }
 
   function sliceToWindow(series, startTime) {
@@ -934,15 +968,22 @@
      Topbar price + generic formatting
      --------------------------------------------------------- */
 
-  function updateTopbarPrice(last, prev) {
+  function updateTopbarPrice(last, prev, meta) {
     const change = last.close - prev.close;
     const pct = prev.close ? (change / prev.close) * 100 : 0;
     const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
     const arrow = change > 0 ? "▲" : change < 0 ? "▼" : "•";
-    $("#priceBlock").html(
-      `<div class="px">₹${fmt(last.close)}</div>` +
-      `<div class="chg ${dir}">${arrow} ${fmt(Math.abs(change))} (${fmt(Math.abs(pct))}%)</div>`
-    );
+    const high = meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null;
+    const highGap = high && high > 0 ? ((last.close - high) / high) * 100 : null;
+    const gapHtml = highGap == null
+      ? ""
+      : `<div class="price-meta ${highGap < 0 ? "down" : highGap > 0 ? "up" : "flat"}">${highGap < 0 ? "↓" : highGap > 0 ? "↑" : "•"} ${fmtPercent(Math.abs(highGap))} 52W</div>`;
+    $("#priceBlock").html(gapHtml || `<div class="price-meta flat">—</div>`);
+  }
+
+  function fmtPercent(n) {
+    if (n === null || n === undefined || isNaN(n)) return "—";
+    return `${n >= 0 ? "+" : "-"}${Math.abs(n).toFixed(2)}%`;
   }
 
   function fmt(n) {
@@ -960,6 +1001,69 @@
   // Fetch data through the controller proxy endpoint
   // The controller handles all server-side requests to Yahoo Finance, eliminating CORS issues
   const FETCH_TIMEOUT_MS = 15000;
+
+  function extractMeta(json) {
+    const result = json && json.chart && json.chart.result && json.chart.result[0];
+    return result && result.meta ? result.meta : null;
+  }
+
+  function loadChangeDataForList(stocks) {
+    const source = DataSources.get(SETTINGS.dataSource);
+    const queue = stocks.slice();
+    const concurrency = 6;
+    let index = 0;
+
+    const worker = async () => {
+      while (index < queue.length) {
+        const currentIndex = index++;
+        const stock = queue[currentIndex];
+        if (!stock) continue;
+        try {
+          const symbol = source.resolveSymbol(stock);
+          const interval = source.mapInterval("D");
+          const range = source.mapRange("D", SETTINGS.barCount);
+          const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+          const { promise } = fetchWithControllerProxy(proxyUrl);
+          const json = await promise;
+          const candles = source.parseCandles(json);
+          if (!candles.length) continue;
+          const bars = candles.slice(-SETTINGS.barCount > 0 ? SETTINGS.barCount : candles.length);
+          const last = bars[bars.length - 1];
+          const prev = bars.length > 1 ? bars[bars.length - 2] : last;
+          const change = last.close - prev.close;
+          const changePct = prev.close ? (change / prev.close) * 100 : 0;
+          const meta = extractMeta(json);
+          const payload = {
+            price: last.close,
+            change,
+            changePct,
+            fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null
+          };
+          quoteCache[stock.s] = payload;
+          quoteCache[stock.s.toUpperCase()] = payload;
+          quoteCache[stock.s.toLowerCase()] = payload;
+          quoteCache[source.resolveSymbol(stock)] = payload;
+          quoteCache[source.resolveSymbol(stock).toUpperCase()] = payload;
+          quoteCache[source.resolveSymbol(stock).toLowerCase()] = payload;
+
+          if (filtered.some((item) => item.s === stock.s)) {
+            filtered = applySort(filtered);
+            renderList(filtered, $("#searchInput").val().trim());
+            highlightActiveRow();
+          }
+        } catch (err) {
+          console.warn(`[${stock.s}] change load failed`, err);
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
+    return Promise.allSettled(workers).then(() => {
+      filtered = applySort(filtered);
+      renderList(filtered, $("#searchInput").val().trim());
+      highlightActiveRow();
+    });
+  }
 
   function fetchWithControllerProxy(proxyUrl) {
     const controller = new AbortController();

@@ -281,15 +281,35 @@ kbd{
   background:var(--amber-soft);
   border-left-color:var(--amber);
 }
+.stock-row .sym-wrap{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:66px;
+  flex-shrink:0;
+}
 .stock-row .sym{
   font-family:var(--font-mono);
   font-weight:700;
   font-size:11.5px;
   color:var(--text);
-  min-width:66px;
-  flex-shrink:0;
+  min-width:0;
 }
 .stock-row.active .sym{ color:var(--amber); }
+.stock-row .move-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:1px 5px;
+  border-radius:999px;
+  font-size:8.5px;
+  font-weight:700;
+  white-space:nowrap;
+  min-width:44px;
+}
+.stock-row .move-pill.up{ background:rgba(27,143,124,.12); color:var(--up); }
+.stock-row .move-pill.down{ background:rgba(216,57,61,.12); color:var(--down); }
+.stock-row .move-pill.flat{ background:var(--panel-alt); color:var(--text-dim); }
 .stock-row .sector{
   font-size:9.5px;
   color:var(--text-faint);
@@ -372,6 +392,14 @@ kbd{
   text-overflow:ellipsis;
   max-width:34vw;
 }
+.sym-block .company-meta{
+  font-size:8.5px;
+  color:var(--text-faint);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:34vw;
+}
 
 .price-block{
   font-family:var(--font-mono);
@@ -386,6 +414,14 @@ kbd{
   font-size:10.5px;
   font-weight:600;
 }
+.price-block .price-meta{
+  font-size:9px;
+  color:var(--text-faint);
+  margin-top:2px;
+}
+.price-meta.up{ color:var(--up); }
+.price-meta.down{ color:var(--down); }
+.price-meta.flat{ color:var(--text-dim); }
 .chg.up{ color:var(--up); }
 .chg.down{ color:var(--down); }
 .chg.flat{ color:var(--text-dim); }
@@ -449,10 +485,10 @@ kbd{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:3px 8px;
+  padding:2px 7px;
   border-bottom:1px solid var(--border);
   background:var(--panel-alt);
-  min-height:24px;
+  min-height:20px;
 }
 .panel-head-left{
   display:flex;
@@ -461,10 +497,10 @@ kbd{
 }
 .tf-chip{
   font-family:var(--font-mono);
-  font-size:9.5px;
+  font-size:8.8px;
   font-weight:700;
   letter-spacing:.05em;
-  padding:1px 6px;
+  padding:1px 5px;
   border-radius:4px;
   color:#fff;
 }
@@ -474,19 +510,23 @@ kbd{
 .tf-chip.H{ background:var(--tf-h); }
 
 .panel-label{
-  font-size:10px;
+  font-size:9px;
   color:var(--text-dim);
   font-family:var(--font-mono);
 }
 
 .panel-ohlc{
-  font-size:9.5px;
+  font-size:8.8px;
   color:var(--text-dim);
   font-family:var(--font-mono);
   display:flex;
   gap:6px;
 }
 .panel-ohlc b{ color:var(--text); font-weight:600; }
+.panel-ohlc .panel-change{ font-weight:700; }
+.panel-ohlc .panel-change.up{ color:var(--up); }
+.panel-ohlc .panel-change.down{ color:var(--down); }
+.panel-ohlc .panel-change.flat{ color:var(--text-dim); }
 .panel-ohlc .sma-val{ color:var(--sma); }
 
 .chart-area{
@@ -757,7 +797,7 @@ kbd{
   .chart-grid{
     grid-template-columns:1fr !important;
     grid-template-rows:none !important;
-    grid-auto-rows:minmax(219px,1fr);
+    grid-auto-rows:minmax(180px,1fr);
   }
   .sym-block .company-name{ max-width:28vw; }
 }
@@ -783,6 +823,12 @@ kbd{
   .sym-block .company-name{ display:none; }
   .price-block{ min-width:80px; }
   .topbar{ padding:0 9px; }
-  .grid-wrap{ padding:5px; }
-  .chart-grid{ gap:5px; }
+  .grid-wrap{ padding:4px; }
+  .chart-grid{ gap:4px; }
+  .chart-panel{ min-height:145px; }
+  .panel-head{ padding:2px 6px; min-height:18px; }
+  .panel-head-left{ gap:4px; }
+  .panel-label{ font-size:8.5px; }
+  .panel-ohlc{ font-size:8px; gap:4px; }
+  .chart-area{ min-height:0; }
 }

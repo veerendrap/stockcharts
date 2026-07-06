@@ -33,6 +33,59 @@ public class HomeController : Controller
     }
 
     /// <summary>
+    /// Proxy endpoint to fetch quote metadata from Yahoo Finance for one or more symbols.
+    /// This bypasses CORS issues by making the request server-side.
+    /// </summary>
+    [HttpGet("api/quote-data")]
+    public async Task<IActionResult> GetQuoteData(string symbols)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(symbols))
+            {
+                return BadRequest(new { error = "Missing required parameter: symbols" });
+            }
+
+            var yahooUrl = $"https://query1.finance.yahoo.com/v2/finance/quote?symbols={Uri.EscapeDataString(symbols)}";
+            _logger.LogInformation($"Fetching quote data for {symbols} from Yahoo Finance");
+
+            using (var client = _httpClientFactory.CreateClient())
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+                var response = await client.GetAsync(yahooUrl);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError($"Yahoo Finance returned status code: {response.StatusCode}");
+                    return StatusCode((int)response.StatusCode, new { error = "Failed to fetch quote data from Yahoo Finance" });
+                }
+
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                var jsonData = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+
+                return Ok(jsonData);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError($"HTTP request error: {ex.Message}");
+            return StatusCode(500, new { error = "Network error while fetching quote data" });
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError($"Request timeout: {ex.Message}");
+            return StatusCode(408, new { error = "Request timeout" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Unexpected error: {ex.Message}");
+            return StatusCode(500, new { error = "Internal server error" });
+        }
+    }
+
+    /// <summary>
     /// Proxy endpoint to fetch chart data from Yahoo Finance API.
     /// This bypasses CORS issues by making the request server-side.
     /// </summary>
