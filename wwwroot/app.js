@@ -42,10 +42,12 @@
     rsiEnabled: true,
     macdEnabled: true,
     autoLoadNifty: true,
+    rememberSelectedSymbol: true,
     sortMode: "change", // "change" | "symbol" | "sector"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
-    visible: { M: true, W: true, D: true, H: true }
+    visible: { M: true, W: true, D: true, H: true },
+    lastSelectedSymbol: null
   };
 
   /* ---------------------------------------------------------
@@ -86,15 +88,32 @@
       $("#stockList").html(
         `<div class="empty-hint">Stock list not found.<br>Make sure stocks.js is loaded before app.js in index.html.</div>`
       );
-    } else {
-      STOCKS = data;
-      filtered = applySort(data);
-      renderList(filtered);
-      $("#listMeta").text(`${data.length} symbols`);
-      loadChangeDataForList(data);
+      if (SETTINGS.autoLoadNifty) selectNifty();
+      return;
     }
 
-    if (SETTINGS.autoLoadNifty) selectNifty();
+    STOCKS = data;
+    filtered = applySort(data);
+    renderList(filtered);
+    $("#listMeta").text(`${data.length} symbols`);
+    loadChangeDataForList(data);
+
+    if (!data.length) {
+      if (SETTINGS.autoLoadNifty) selectNifty();
+      return;
+    }
+
+    STOCKS = data;
+    filtered = applySort(data);
+    renderList(filtered);
+    $("#listMeta").text(`${data.length} symbols`);
+    loadChangeDataForList(data);
+
+    if (SETTINGS.rememberSelectedSymbol && SETTINGS.lastSelectedSymbol) {
+      restoreSavedSelection();
+    } else if (SETTINGS.autoLoadNifty) {
+      selectNifty();
+    }
   });
 
   /* ---------------------------------------------------------
@@ -276,6 +295,39 @@
     else if (e.key === "ArrowUp") { e.preventDefault(); selectByFilteredIndex(activeIndex - 1); }
   });
 
+  function restoreSavedSelection() {
+    const saved = SETTINGS.lastSelectedSymbol;
+    if (!saved || !saved.s) {
+      if (SETTINGS.autoLoadNifty) selectNifty();
+      return;
+    }
+
+    const savedSym = String(saved.s).toUpperCase();
+    const match = STOCKS.find((stock) => String(stock.s).toUpperCase() === savedSym);
+    if (match) {
+      activeIndex = filtered.findIndex((stock) => String(stock.s).toUpperCase() === savedSym);
+      loadSymbol(match);
+      highlightActiveRow();
+      updateNavButtons();
+      return;
+    }
+
+    if (saved.s === "^NSEI" || saved.s === "NSEI") {
+      selectNifty();
+      return;
+    }
+
+    loadSymbol({ s: saved.s, n: saved.n || saved.s, i: saved.i || "Custom" });
+    highlightActiveRow();
+    updateNavButtons();
+  }
+
+  function rememberSelectedSymbol(stock) {
+    if (!SETTINGS.rememberSelectedSymbol || !stock) return;
+    SETTINGS.lastSelectedSymbol = { s: stock.s, n: stock.n, i: stock.i || "" };
+    saveSettings();
+  }
+
   $("#gridWrap").on("wheel", function (e) {
     if (!e.shiftKey) return;
     e.preventDefault();
@@ -284,6 +336,7 @@
   });
 
   $("#refreshBtn").on("click", function () {
+    resetChartLayout();
     if (currentStock) loadSymbol(currentStock);
   });
 
@@ -554,6 +607,7 @@
     setSegActive("#themeSeg", SETTINGS.theme);
     setSegActive("#densitySeg", SETTINGS.density);
     $("#barCountInput").val(SETTINGS.barCount);
+    $("#rememberSymbolToggle").prop("checked", !!SETTINGS.rememberSelectedSymbol);
     $("#decimalsSelect").val(String(SETTINGS.priceDecimals));
     $("#smaToggle").prop("checked", SETTINGS.smaEnabled);
     $("#rsiToggle").prop("checked", SETTINGS.rsiEnabled);
@@ -631,6 +685,14 @@
 
     $("#niftyToggle").on("change", function () {
       SETTINGS.autoLoadNifty = $(this).is(":checked");
+      saveSettings();
+    });
+
+    $("#rememberSymbolToggle").on("change", function () {
+      SETTINGS.rememberSelectedSymbol = $(this).is(":checked");
+      if (!SETTINGS.rememberSelectedSymbol) {
+        SETTINGS.lastSelectedSymbol = null;
+      }
       saveSettings();
     });
 
@@ -738,8 +800,19 @@
      8. Loading a symbol into all four charts
      --------------------------------------------------------- */
 
+  function resetChartLayout() {
+    TIMEFRAMES.forEach((tf) => {
+      SETTINGS.visible[tf.key] = !!DEFAULT_SETTINGS.visible[tf.key];
+      $(`.panel-toggle[data-tf="${tf.key}"]`).prop("checked", SETTINGS.visible[tf.key]);
+      setPanelVisible(tf.key, SETTINGS.visible[tf.key]);
+    });
+    updateGridLayout();
+    saveSettings();
+  }
+
   function loadSymbol(stock) {
     currentStock = stock;
+    rememberSelectedSymbol(stock);
     $("#placeholder").hide();
     $("#topbarInfo").show();
     $(".big-sym .symtext").text(stock.s.replace(/^\^/, ""));
