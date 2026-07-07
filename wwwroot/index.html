@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NSE 500 Charts — Monthly · Weekly · Daily · 1H</title>
+<title>NSE 500 Charts — Daily · Weekly · Monthly · 1H</title>
 
 <script>
   // Applied before CSS/paint so a saved theme/density never flashes the
@@ -39,7 +39,7 @@
           <span class="dot"></span>
           <h1>NSE 500 CHARTS</h1>
         </div>
-        <div class="brand-sub">M · W · D · 1H quad view</div>
+        <div class="brand-sub">D · W · M · 1H quad view</div>
       </div>
       <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
     </div>
@@ -250,9 +250,9 @@
       <div class="settings-section">
         <h4>Visible panels</h4>
         <div class="checkbox-grid">
-          <label class="checkbox-item" data-tf="M">
-            <input type="checkbox" class="panel-toggle" data-tf="M" checked>
-            <span>Monthly</span>
+          <label class="checkbox-item" data-tf="D">
+            <input type="checkbox" class="panel-toggle" data-tf="D" checked>
+            <span>Daily</span>
             <span class="chip-dot"></span>
           </label>
           <label class="checkbox-item" data-tf="W">
@@ -260,9 +260,9 @@
             <span>Weekly</span>
             <span class="chip-dot"></span>
           </label>
-          <label class="checkbox-item" data-tf="D">
-            <input type="checkbox" class="panel-toggle" data-tf="D" checked>
-            <span>Daily</span>
+          <label class="checkbox-item" data-tf="M">
+            <input type="checkbox" class="panel-toggle" data-tf="M" checked>
+            <span>Monthly</span>
             <span class="chip-dot"></span>
           </label>
           <label class="checkbox-item" data-tf="H">

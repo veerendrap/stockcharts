@@ -20,9 +20,9 @@
   // hardcoded here. This is the app depending on an abstraction rather
   // than a specific provider's API shape.
   const TIMEFRAMES = [
-    { key: "M", label: "Monthly" },
-    { key: "W", label: "Weekly" },
     { key: "D", label: "Daily" },
+    { key: "W", label: "Weekly" },
+    { key: "M", label: "Monthly" },
     { key: "H", label: "1 Hour" }
   ];
 
@@ -36,7 +36,7 @@
   const DEFAULT_SETTINGS = {
     theme: "light",
     density: "compact",
-    barCount: 80,
+    barCount: 60,
     priceDecimals: 0,
     smaEnabled: true,
     rsiEnabled: true,

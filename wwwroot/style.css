@@ -460,20 +460,22 @@ kbd{
   display:grid;
   grid-template-columns:1fr 1fr;
   grid-template-rows:1fr 1fr;
-  gap:7px;
+  gap:6px;
   height:95%;
-  min-height:475px;
+  min-height:450px;
+  padding:6px;
 }
 
 .chart-panel{
   position:relative;
   background:var(--panel);
-  border:2px solid var(--border);
-  border-radius:9px;
+  border:0 solid var(--border);
+  border-radius:8px;
   overflow:hidden;
   display:flex;
   flex-direction:column;
-  min-height:220px;
+  min-height:209px;
+  box-shadow:0 10px 24px rgba(15, 23, 42, 0.12);
 }
 .chart-panel.hidden-panel{ display:none; }
 .chart-panel[data-tf="M"]{ border-color:var(--tf-m); }
