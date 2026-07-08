@@ -386,6 +386,16 @@ kbd{
   font-weight:700;
   letter-spacing:.04em;
 }
+.sym-block .sector-name{
+  font-size:8px;
+  color:var(--text-faint);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:34vw;
+  letter-spacing:.02em;
+  line-height:1.15;
+}
 .sym-block .company-name{
   font-size:9.5px;
   color:var(--text-faint);
@@ -417,7 +427,8 @@ kbd{
   font-weight:600;
 }
 .price-block .price-meta{
-  font-size:10px;
+  font-size:11.5px;
+  font-weight:600;
   color:var(--text-faint);
   margin-top:3px;
   line-height:1.2;
@@ -562,7 +573,10 @@ kbd{
   white-space:nowrap;
 }
 .chart-tooltip b{ color:var(--text); font-weight:700; }
-.chart-tooltip .sma{ color:var(--sma); font-weight:600; }
+.chart-tooltip .change-pct{ font-weight:700; }
+.chart-tooltip .change-pct.up{ color:var(--up); }
+.chart-tooltip .change-pct.down{ color:var(--down); }
+.chart-tooltip .change-pct.flat{ color:var(--text-dim); }
 
 .panel-state{
   position:absolute;

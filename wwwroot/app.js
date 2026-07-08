@@ -403,7 +403,7 @@
       charts[tf.key] = { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist };
       applyPaneLayout(tf.key);
       setPanelVisible(tf.key, SETTINGS.visible[tf.key]);
-      bindCrosshairTooltip(tf.key, host, chart, series, smaSeries);
+      bindCrosshairTooltip(tf.key, host, chart, series);
     });
 
     resizeObserver = new ResizeObserver(() => {
@@ -424,7 +424,7 @@
 
   // Hover tooltip: shows OHLC + SMA5 for whatever bar the crosshair is over,
   // positioned near the cursor and clamped inside the chart area.
-  function bindCrosshairTooltip(tfKey, host, chart, series, smaSeries) {
+  function bindCrosshairTooltip(tfKey, host, chart, series) {
     const $tip = $(`#tooltip-${tfKey}`);
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !param.time || param.point.x < 0 || param.point.y < 0 || !param.seriesData) {
@@ -433,10 +433,13 @@
       }
       const ohlc = param.seriesData.get(series);
       if (!ohlc) { $tip.hide(); return; }
-      const smaPt = param.seriesData.get(smaSeries);
 
       let html = `O <b>${fmt(ohlc.open)}</b> H <b>${fmt(ohlc.high)}</b> L <b>${fmt(ohlc.low)}</b> C <b>${fmt(ohlc.close)}</b>`;
-      if (smaPt && smaPt.value != null) html += `<br><span class="sma">SMA5 ${fmt(smaPt.value)}</span>`;
+      if (ohlc.open != null && ohlc.close != null && ohlc.open !== 0) {
+        const pct = ((ohlc.close - ohlc.open) / ohlc.open) * 100;
+        const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+        html += `<br><span class="change-pct ${cls}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
+      }
       $tip.html(html).show();
 
       const w = host.clientWidth, h = host.clientHeight;
@@ -473,12 +476,19 @@
         background: { type: "solid", color: cssVar("--panel") },
         textColor: cssVar("--text-dim"),
         fontFamily: "IBM Plex Mono, monospace",
-        fontSize: isMobile ? 9 : 11
+        fontSize: isMobile ? 8 : 9
       },
       grid: { vertLines: { color: border }, horzLines: { color: border } },
       rightPriceScale: { borderColor: border, scaleMargins: { top: 0.05, bottom: 0.05 } },
       leftPriceScale: { visible: false },
-      timeScale: { borderColor: border, timeVisible: true, secondsVisible: false, tickMarkFormatter: (time) => { if (!time) return ""; const d = new Date(time * 1000); return isMobile ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString(); } },
+      timeScale: {
+        borderColor: border,
+        timeVisible: true,
+        secondsVisible: false,
+        barSpacing: 4,
+        tickMarkPadding: 2,
+        tickMarkFormatter: (time) => { if (!time) return ""; const d = new Date(time * 1000); return isMobile ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString(); }
+      },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       autoSize: false,
       handleScroll: true,
@@ -816,8 +826,9 @@
     $("#placeholder").hide();
     $("#topbarInfo").show();
     $(".big-sym .symtext").text(stock.s.replace(/^\^/, ""));
+    $(".sector-name").text(stock.i || "—");
     $(".company-name").text(stock.n);
-    $(".company-meta").text(stock.i || "—");
+    $(".company-meta").text(stock.i ? `Sector • ${stock.i}` : "—");
     $("#priceBlock").html("");
     Object.keys(candleCache).forEach((k) => delete candleCache[k]);
     Object.keys(candleCacheRange).forEach((k) => delete candleCacheRange[k]);
