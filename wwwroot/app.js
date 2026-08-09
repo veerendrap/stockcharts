@@ -896,7 +896,17 @@
     });
   }
 
-  function loadTimeframe(stock, tfKey) {
+  function buildSymbolCandidates(stock, source) {
+    if (source && typeof source.resolveSymbolCandidates === "function") {
+      return source.resolveSymbolCandidates(stock);
+    }
+    const raw = String(stock && (stock.s || stock) ? (stock.s || stock) : "").trim();
+    if (!raw) return [];
+    if (raw.startsWith("^") || raw.includes(".") || raw.includes(":")) return [raw];
+    return [source.resolveSymbol(stock), raw].filter(Boolean);
+  }
+
+  async function loadTimeframe(stock, tfKey) {
     const tf = TIMEFRAMES.find((t) => t.key === tfKey);
     setPanelState(tfKey, "loading", `Fetching ${tf.label.toLowerCase()}…`);
 
@@ -907,39 +917,42 @@
       activeFetches[tfKey].controllers.forEach((c) => c.abort());
     }
 
-    // All provider-specific knowledge (symbol format, interval/range
-    // syntax, response shape) lives behind this one call — loadTimeframe
-    // itself has no idea which source it's talking to.
     const source = DataSources.get(SETTINGS.dataSource);
-    const symbol = source.resolveSymbol(stock);
     const interval = source.mapInterval(tfKey);
     const range = source.mapRange(tfKey, SETTINGS.barCount);
+    const candidates = buildSymbolCandidates(stock, source);
 
-    // Build controller proxy URL with parameters
-    const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+    let lastErr = null;
+    for (const symbol of candidates) {
+      const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+      const { promise, controllers } = fetchWithControllerProxy(proxyUrl);
+      activeFetches[tfKey] = { controllers };
 
-    const { promise, controllers } = fetchWithControllerProxy(proxyUrl);
-    activeFetches[tfKey] = { controllers };
-
-    promise
-      .then((json) => {
+      try {
+        const json = await promise;
         if (activeFetches[tfKey] && activeFetches[tfKey].controllers !== controllers) return; // superseded
         const candles = source.parseCandles(json);
         if (!candles.length) {
-          setPanelState(tfKey, "empty", "No candles returned — check the symbol");
-          return;
+          lastErr = new Error(extractYahooError(json) || "No candles returned");
+          continue;
         }
         candleCache[tfKey] = candles;
         candleCacheRange[tfKey] = range;
         candleMetaCache[tfKey] = extractMeta(json);
         renderChartData(tfKey);
-      })
-      .catch((err) => {
+        return;
+      } catch (err) {
         if (activeFetches[tfKey] && activeFetches[tfKey].controllers !== controllers) return; // superseded, ignore
         if (err && err.name === "AbortError") return; // cancelled on purpose, not a real failure
-        console.error(`[${stock.s}/${tfKey}]`, err);
-        setPanelState(tfKey, "error", "Fetch failed");
-      });
+        lastErr = err;
+      }
+    }
+
+    console.warn(`[${stock.s}/${tfKey}]`, lastErr || new Error("No data"));
+    const msg = lastErr && /no data found|not found|delisted/i.test(lastErr.message)
+      ? "No Yahoo data available for this symbol"
+      : "No data available for this symbol";
+    setPanelState(tfKey, "empty", msg);
   }
 
   // Re-draws a timeframe's chart from candleCache using current settings —
@@ -1146,6 +1159,12 @@
     return result && result.meta ? result.meta : null;
   }
 
+  function extractYahooError(json) {
+    const err = json && json.chart && json.chart.error;
+    if (!err) return null;
+    return err.description || err.code || null;
+  }
+
   function loadChangeDataForList(stocks) {
     const source = DataSources.get(SETTINGS.dataSource);
     const queue = stocks.slice();
@@ -1158,32 +1177,45 @@
         const stock = queue[currentIndex];
         if (!stock) continue;
         try {
-          const symbol = source.resolveSymbol(stock);
           const interval = source.mapInterval("D");
           const range = source.mapRange("D", SETTINGS.barCount);
-          const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
-          const { promise } = fetchWithControllerProxy(proxyUrl);
-          const json = await promise;
-          const candles = source.parseCandles(json);
-          if (!candles.length) continue;
-          const bars = candles.slice(-SETTINGS.barCount > 0 ? SETTINGS.barCount : candles.length);
-          const last = bars[bars.length - 1];
-          const prev = bars.length > 1 ? bars[bars.length - 2] : last;
-          const change = last.close - prev.close;
-          const changePct = prev.close ? (change / prev.close) * 100 : 0;
-          const meta = extractMeta(json);
-          const payload = {
-            price: last.close,
-            change,
-            changePct,
-            fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null
-          };
+          const candidates = buildSymbolCandidates(stock, source);
+          let payload = null;
+
+          for (const symbol of candidates) {
+            const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+            try {
+              const { promise } = fetchWithControllerProxy(proxyUrl);
+              const json = await promise;
+              const candles = source.parseCandles(json);
+              if (!candles.length) continue;
+              const bars = candles.slice(-SETTINGS.barCount > 0 ? SETTINGS.barCount : candles.length);
+              const last = bars[bars.length - 1];
+              const prev = bars.length > 1 ? bars[bars.length - 2] : last;
+              const change = last.close - prev.close;
+              const changePct = prev.close ? (change / prev.close) * 100 : 0;
+              const meta = extractMeta(json);
+              payload = {
+                price: last.close,
+                change,
+                changePct,
+                fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null
+              };
+              break;
+            } catch (err) {
+              // Try the next symbol candidate if this one fails.
+            }
+          }
+
+          if (!payload) continue;
+
           quoteCache[stock.s] = payload;
           quoteCache[stock.s.toUpperCase()] = payload;
           quoteCache[stock.s.toLowerCase()] = payload;
-          quoteCache[source.resolveSymbol(stock)] = payload;
-          quoteCache[source.resolveSymbol(stock).toUpperCase()] = payload;
-          quoteCache[source.resolveSymbol(stock).toLowerCase()] = payload;
+          const resolved = source.resolveSymbol(stock);
+          quoteCache[resolved] = payload;
+          quoteCache[resolved.toUpperCase()] = payload;
+          quoteCache[resolved.toLowerCase()] = payload;
 
           if (filtered.some((item) => item.s === stock.s) || getFilterMode() !== "all") {
             refreshFilteredList();

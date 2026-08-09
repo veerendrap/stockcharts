@@ -43,8 +43,18 @@ window.DataSources = (function () {
       // Indices (^NSEI) and symbols that already carry an exchange suffix
       // (e.g. AAPL.US, RELIANCE.BO) are used as-is; everything else is
       // assumed to be a plain NSE equity symbol.
-      if (stock.s.startsWith("^") || stock.s.includes(".")) return stock.s;
-      return stock.s + ".NS";
+      const raw = String(stock && stock.s ? stock.s : stock || "").trim();
+      if (!raw) return raw;
+      if (raw.startsWith("^") || raw.includes(".") || raw.includes(":")) return raw;
+      return raw + ".NS";
+    },
+
+    resolveSymbolCandidates(stock) {
+      const raw = String(stock && stock.s ? stock.s : stock || "").trim();
+      if (!raw) return [];
+      if (raw.startsWith("^") || raw.includes(".") || raw.includes(":")) return [raw];
+      return Array.from(new Set([raw, `${raw}.NS`, `${raw}.BO`]))
+        .filter(Boolean);
     },
 
     mapInterval(tfKey) {
