@@ -44,6 +44,7 @@
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     sortMode: "change", // "change" | "symbol" | "sector"
+    filterMode: "all", // "all" | "positive" | "negative" | "nearHigh"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
     visible: { M: true, W: true, D: true, H: true },
@@ -84,6 +85,7 @@
     // local server required.
     const data = window.STOCKS_DATA || [];
     $("#sortSelect").val(SETTINGS.sortMode || "change");
+    $("#filterSelect").val(SETTINGS.filterMode || "all");
     if (!data.length) {
       $("#stockList").html(
         `<div class="empty-hint">Stock list not found.<br>Make sure stocks.js is loaded before app.js in index.html.</div>`
@@ -191,6 +193,51 @@
     return $("<div>").text(str || "").html();
   }
 
+  function getFilterMode() {
+    return $("#filterSelect").val() || SETTINGS.filterMode || "all";
+  }
+
+  function matchesFilter(stock, mode) {
+    const meta = getQuoteMeta(stock);
+    if (!meta) return false;
+
+    if (mode === "positive") return Number.isFinite(meta.changePct) && meta.changePct > 0;
+    if (mode === "negative") return Number.isFinite(meta.changePct) && meta.changePct < 0;
+    if (mode === "nearHigh") {
+      const high = meta.fiftyTwoWeekHigh;
+      const price = meta.price;
+      if (!Number.isFinite(high) || high <= 0 || !Number.isFinite(price) || price <= 0) return false;
+      return price >= high * 0.9;
+    }
+    return true;
+  }
+
+  function refreshFilteredList() {
+    const q = $("#searchInput").val().trim().toUpperCase();
+    const mode = getFilterMode();
+    let next = STOCKS;
+
+    if (q) {
+      next = next.filter((s) => s.s.toUpperCase().includes(q) || s.n.toUpperCase().includes(q));
+    }
+
+    if (mode !== "all") {
+      next = next.filter((s) => matchesFilter(s, mode));
+    }
+
+    filtered = applySort(next);
+    renderList(filtered, q);
+
+    if (currentStock && filtered.some((s) => s.s === currentStock.s)) {
+      activeIndex = filtered.findIndex((s) => s.s === currentStock.s);
+    } else {
+      activeIndex = -1;
+    }
+
+    highlightActiveRow();
+    updateNavButtons();
+  }
+
   $(document).on("click", ".stock-row", function () {
     const idx = parseInt($(this).data("idx"), 10);
     selectByFilteredIndex(idx);
@@ -202,14 +249,7 @@
     const q = $(this).val().trim().toUpperCase();
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function () {
-      filtered = !q
-        ? STOCKS
-        : STOCKS.filter(
-            (s) => s.s.toUpperCase().includes(q) || s.n.toUpperCase().includes(q)
-          );
-      filtered = applySort(filtered);
-      renderList(filtered, q);
-      highlightActiveRow();
+      refreshFilteredList();
     }, 120);
   });
 
@@ -217,6 +257,12 @@
     SETTINGS.sortMode = $(this).val();
     saveSettings();
     resortList();
+  });
+
+  $("#filterSelect").on("change", function () {
+    SETTINGS.filterMode = $(this).val() || "all";
+    saveSettings();
+    refreshFilteredList();
   });
 
   // Enter: jump to the first match, or — if nothing matches the NSE 500
@@ -1130,10 +1176,8 @@
           quoteCache[source.resolveSymbol(stock).toUpperCase()] = payload;
           quoteCache[source.resolveSymbol(stock).toLowerCase()] = payload;
 
-          if (filtered.some((item) => item.s === stock.s)) {
-            filtered = applySort(filtered);
-            renderList(filtered, $("#searchInput").val().trim());
-            highlightActiveRow();
+          if (filtered.some((item) => item.s === stock.s) || getFilterMode() !== "all") {
+            refreshFilteredList();
           }
         } catch (err) {
           console.warn(`[${stock.s}] change load failed`, err);
@@ -1143,9 +1187,7 @@
 
     const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
     return Promise.allSettled(workers).then(() => {
-      filtered = applySort(filtered);
-      renderList(filtered, $("#searchInput").val().trim());
-      highlightActiveRow();
+      refreshFilteredList();
     });
   }
 

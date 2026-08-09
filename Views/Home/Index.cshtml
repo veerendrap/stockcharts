@@ -61,6 +61,12 @@
         <option value="symbol">Sort: Symbol</option>
         <option value="sector">Sort: Sector</option>
       </select>
+      <select id="filterSelect" class="sort-select" title="Filter symbols by">
+        <option value="all">Filter: All</option>
+        <option value="positive">Filter: +Change %</option>
+        <option value="negative">Filter: -Change %</option>
+        <option value="nearHigh">Filter: Near 52W High</option>
+      </select>
       <span id="listMeta">Loading…</span>
     </div>
 
@@ -94,7 +100,7 @@
         <div class="price-block" id="priceBlock"></div>
         <button class="nav-btn" id="prevBtn" disabled title="Previous symbol (↑)">◀</button>
         <button class="nav-btn" id="nextBtn" disabled title="Next symbol (↓ or Shift+scroll)">▶</button>
-        <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>
+        <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>b
       </div>
     </div>
 
