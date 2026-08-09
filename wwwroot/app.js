@@ -39,15 +39,15 @@
     barCount: 60,
     priceDecimals: 0,
     smaEnabled: true,
-    rsiEnabled: true,
-    macdEnabled: true,
+    rsiEnabled: false,
+    macdEnabled: false,
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     sortMode: "change", // "change" | "symbol" | "sector"
     filterMode: "all", // "all" | "positive" | "negative" | "nearHigh"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
-    visible: { M: true, W: true, D: true, H: true },
+    visible: { M: true, W: true, D: true, H: false },
     lastSelectedSymbol: null
   };
 
@@ -452,6 +452,8 @@
       bindCrosshairTooltip(tf.key, host, chart, series);
     });
 
+    applyStoredLayoutState();
+
     resizeObserver = new ResizeObserver(() => {
       TIMEFRAMES.forEach((tf) => {
         const h = document.getElementById(`host-${tf.key}`);
@@ -728,14 +730,14 @@
     $("#rsiToggle").on("change", function () {
       SETTINGS.rsiEnabled = $(this).is(":checked");
       saveSettings();
-      TIMEFRAMES.forEach((tf) => applyPaneLayout(tf.key));
+      applyStoredLayoutState();
       rerenderAllFromCache();
     });
 
     $("#macdToggle").on("change", function () {
       SETTINGS.macdEnabled = $(this).is(":checked");
       saveSettings();
-      TIMEFRAMES.forEach((tf) => applyPaneLayout(tf.key));
+      applyStoredLayoutState();
       rerenderAllFromCache();
     });
 
@@ -770,8 +772,7 @@
       }
       SETTINGS.visible[tfKey] = checked;
       saveSettings();
-      setPanelVisible(tfKey, checked);
-      updateGridLayout();
+      applyStoredLayoutState();
 
       // Panel just got shown — if it was skipped while hidden (no cached
       // data yet), fetch it now for whatever symbol is currently loaded.
@@ -781,6 +782,14 @@
         else loadTimeframe(currentStock, tfKey);
       }
     });
+  }
+
+  function applyStoredLayoutState() {
+    TIMEFRAMES.forEach((tf) => {
+      setPanelVisible(tf.key, !!SETTINGS.visible[tf.key]);
+      applyPaneLayout(tf.key);
+    });
+    updateGridLayout();
   }
 
   function setSegActive(containerSel, val) {
