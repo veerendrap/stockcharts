@@ -44,7 +44,7 @@
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     sortMode: "change", // "change" | "symbol" | "sector"
-    filterMode: "all", // "all" | "positive" | "negative" | "nearHigh"
+    filterMode: "all", // "all" | "positive" | "negative" | "nearHigh" | "above5sma"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
     visible: { M: true, W: true, D: true, H: false },
@@ -95,20 +95,7 @@
     }
 
     STOCKS = data;
-    filtered = applySort(data);
-    renderList(filtered);
-    $("#listMeta").text(`${data.length} symbols`);
-    loadChangeDataForList(data);
-
-    if (!data.length) {
-      if (SETTINGS.autoLoadNifty) selectNifty();
-      return;
-    }
-
-    STOCKS = data;
-    filtered = applySort(data);
-    renderList(filtered);
-    $("#listMeta").text(`${data.length} symbols`);
+    refreshFilteredList();
     loadChangeDataForList(data);
 
     if (SETTINGS.rememberSelectedSymbol && SETTINGS.lastSelectedSymbol) {
@@ -184,6 +171,7 @@
     const currentSym = activeIndex >= 0 && filtered[activeIndex] ? filtered[activeIndex].s : null;
     filtered = applySort(filtered);
     renderList(filtered, $("#searchInput").val().trim());
+    updateListMeta();
     activeIndex = currentSym ? filtered.findIndex((s) => s.s === currentSym) : -1;
     highlightActiveRow();
     updateNavButtons();
@@ -197,6 +185,14 @@
     return $("#filterSelect").val() || SETTINGS.filterMode || "all";
   }
 
+  function updateListMeta() {
+    const total = STOCKS.length;
+    const query = $("#searchInput").val().trim();
+    const mode = getFilterMode();
+    const hasCriteria = query.length > 0 || mode !== "all";
+    $("#listMeta").text(hasCriteria ? `${filtered.length} of ${total}` : `${total} symbols`);
+  }
+
   function matchesFilter(stock, mode) {
     const meta = getQuoteMeta(stock);
     if (!meta) return false;
@@ -208,6 +204,9 @@
       const price = meta.price;
       if (!Number.isFinite(high) || high <= 0 || !Number.isFinite(price) || price <= 0) return false;
       return price >= high * 0.9;
+    }
+    if (mode === "above5sma") {
+      return meta.aboveSma5 === true;
     }
     return true;
   }
@@ -227,6 +226,7 @@
 
     filtered = applySort(next);
     renderList(filtered, q);
+    updateListMeta();
 
     if (currentStock && filtered.some((s) => s.s === currentStock.s)) {
       activeIndex = filtered.findIndex((s) => s.s === currentStock.s);
@@ -1189,16 +1189,22 @@
               const json = await promise;
               const candles = source.parseCandles(json);
               if (!candles.length) continue;
-              const bars = candles.slice(-SETTINGS.barCount > 0 ? SETTINGS.barCount : candles.length);
+              const barCount = Number(SETTINGS.barCount);
+              const bars = barCount > 0 ? candles.slice(-barCount) : candles;
               const last = bars[bars.length - 1];
               const prev = bars.length > 1 ? bars[bars.length - 2] : last;
               const change = last.close - prev.close;
               const changePct = prev.close ? (change / prev.close) * 100 : 0;
+              const smaSeries = computeSMA(bars, 5);
+              const sma5 = smaSeries.length ? smaSeries[smaSeries.length - 1].value : null;
+              const aboveSma5 = sma5 != null && last.close > sma5;
               const meta = extractMeta(json);
               payload = {
                 price: last.close,
                 change,
                 changePct,
+                aboveSma5,
+                sma5,
                 fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null
               };
               break;

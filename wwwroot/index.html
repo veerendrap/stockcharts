@@ -59,6 +59,13 @@
         <option value="symbol">Sort: Symbol</option>
         <option value="sector">Sort: Sector</option>
       </select>
+      <select id="filterSelect" class="sort-select" title="Filter symbols by">
+        <option value="all">Filter: All</option>
+        <option value="positive">Filter: +Change %</option>
+        <option value="negative">Filter: -Change %</option>
+        <option value="nearHigh">Filter: Near 52W High</option>
+        <option value="above5sma">Filter: Above 5 SMA (Daily)</option>
+      </select>
       <span id="listMeta">Loading…</span>
     </div>
 
@@ -114,7 +121,7 @@
         </p>
       </div>
 
-      <div class="chart-grid" id="chartGrid" style="display:none;"></div>
+      <div class="chart-grid" id="chartGrid"></div>
 
     </div>
   </main>
@@ -305,10 +312,6 @@
 
 <!-- App logic -->
 <script src="app.js"></script>
-
-<script>
-  $(function(){ $('#chartGrid').css('display','grid'); });
-</script>
 
 </body>
 </html>

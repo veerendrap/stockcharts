@@ -66,6 +66,7 @@
         <option value="positive">Filter: +Change %</option>
         <option value="negative">Filter: -Change %</option>
         <option value="nearHigh">Filter: Near 52W High</option>
+        <option value="above5sma">Filter: Above 5 SMA (Daily)</option>
       </select>
       <span id="listMeta">Loading…</span>
     </div>
@@ -100,7 +101,7 @@
         <div class="price-block" id="priceBlock"></div>
         <button class="nav-btn" id="prevBtn" disabled title="Previous symbol (↑)">◀</button>
         <button class="nav-btn" id="nextBtn" disabled title="Next symbol (↓ or Shift+scroll)">▶</button>
-        <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>b
+        <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>
       </div>
     </div>
 
@@ -116,7 +117,7 @@
         </p>
       </div>
 
-      <div class="chart-grid" id="chartGrid" style="display:none;"></div>
+      <div class="chart-grid" id="chartGrid"></div>
     </div>
   </main>
 </div>
@@ -284,10 +285,6 @@
 
 <!-- App logic -->
 <script src="~/app.js" asp-append-version="true"></script>
-
-<script>
-  $(function(){ $('#chartGrid').css('display','grid'); });
-</script>
 
 </body>
 </html>
