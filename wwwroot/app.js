@@ -319,6 +319,7 @@
 
     highlightActiveRow();
     updateNavButtons();
+    if (window.StockPrediction) StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
   }
 
   $(document).on("click", ".stock-row", function () {
@@ -489,6 +490,7 @@
         `<span class="tf-chip ${tf.key}">${tf.key}</span>` +
         `<span class="panel-label">${tf.label}</span>` +
         `</div>` +
+        `<div class="prediction-levels" aria-label="Entry, target, and stop-loss levels"></div>` +
         `<div class="panel-ohlc" id="ohlc-${tf.key}"></div>` +
         `</div>` +
         `<div class="chart-area">` +
@@ -503,6 +505,7 @@
       $grid.append(panel);
 
       const host = document.getElementById(`host-${tf.key}`);
+      const levelsHost = panel[0].querySelector(".prediction-levels");
       const chart = LightweightCharts.createChart(host, chartOptions());
 
       const series = chart.addCandlestickSeries(candleColors());
@@ -535,7 +538,7 @@
         priceLineVisible: false, lastValueVisible: false
       });
 
-      charts[tf.key] = { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist };
+      charts[tf.key] = { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost };
       applyPaneLayout(tf.key);
       setPanelVisible(tf.key, SETTINGS.visible[tf.key]);
       bindCrosshairTooltip(tf.key, host, chart, series);
@@ -1101,6 +1104,10 @@
 
     c.chart.timeScale().fitContent();
 
+    if (["M", "W", "D"].includes(tfKey) && window.StockPrediction) {
+      StockPrediction.update(currentStock, full, c, tfKey, filtered, quoteCache);
+    }
+
     const last = bars[bars.length - 1];
     const prev = bars.length > 1 ? bars[bars.length - 2] : last;
     const change = last.close - prev.close;
@@ -1306,6 +1313,7 @@
               }
               const barCount = Number(SETTINGS.barCount);
               const bars = barCount > 0 ? candles.slice(-barCount) : candles;
+              if (window.StockPrediction) StockPrediction.cacheBars(stock.s, candles);
               const last = bars[bars.length - 1];
               const prev = bars.length > 1 ? bars[bars.length - 2] : last;
               const change = last.close - prev.close;
@@ -1358,6 +1366,7 @@
       saveSyncStore();
       refreshFilteredList();
       updateSyncSummary();
+      if (window.StockPrediction) StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
     });
   }
 
@@ -1388,6 +1397,19 @@
       $("#scrim").addClass("show");
     });
     $("#scrim").on("click", closeSidebarOnMobile);
+    $("#analysisBtn").on("click", function () {
+      $("#chartGrid").hide();
+      $("#analysisView").addClass("show");
+      $(this).addClass("active");
+      if (currentStock && candleCache.D && window.StockPrediction) {
+        StockPrediction.update(currentStock, candleCache.D, charts.D, "D", filtered, quoteCache);
+      }
+    });
+    $("#analysisClose").on("click", function () {
+      $("#analysisView").removeClass("show");
+      $("#chartGrid").show();
+      $("#analysisBtn").removeClass("active");
+    });
   }
 
   function closeSidebarOnMobile() {

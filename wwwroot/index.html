@@ -110,6 +110,7 @@
         <div class="price-block" id="priceBlock"></div>
         <button class="nav-btn" id="prevBtn" disabled title="Previous symbol (↑)">◀</button>
         <button class="nav-btn" id="nextBtn" disabled title="Next symbol (↓ or Shift+scroll)">▶</button>
+        <button class="analysis-btn" id="analysisBtn" title="Open stock prediction analysis">Analysis</button>
         <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>
       </div>
     </div>
@@ -128,6 +129,19 @@
       </div>
 
       <div class="chart-grid" id="chartGrid"></div>
+
+      <section class="analysis-view" id="analysisView" aria-live="polite">
+        <div class="analysis-head">
+          <div>
+            <div class="analysis-kicker">STOCK PREDICTION DESK</div>
+            <h2 id="analysisTitle">Select a stock</h2>
+          </div>
+          <button class="analysis-close" id="analysisClose" title="Back to charts">Back to charts</button>
+        </div>
+        <div id="predictionPanel" class="prediction-panel">
+          <div class="analysis-empty">Select a stock to calculate its long-only setup.</div>
+        </div>
+      </section>
 
     </div>
   </main>
@@ -315,6 +329,9 @@
 <!-- Pluggable data-source registry (Yahoo Finance, etc.) — app.js depends
      on this abstraction rather than any single provider's API directly -->
 <script src="datasources.js"></script>
+
+<!-- Long-only stock prediction and fundamental analysis -->
+<script src="prediction.js"></script>
 
 <!-- App logic -->
 <script src="app.js"></script>
