@@ -1427,10 +1427,23 @@
       event.preventDefault();
       event.stopPropagation();
       const symbol = String($(this).data("symbol") || "");
+      openChartForSymbol(symbol);
+    });
+    $(document).on("click", ".prediction-stock-cell", function (event) {
+      if ($(event.target).closest(".row-chart-btn").length) return;
+      openChartForSymbol(String($(this).data("symbol") || ""));
+    });
+    $(document).on("keydown", ".prediction-stock-cell", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openChartForSymbol(String($(this).data("symbol") || ""));
+    });
+
+    function openChartForSymbol(symbol) {
       const index = filtered.findIndex((stock) => stock.s === symbol);
       if (index >= 0) selectByFilteredIndex(index);
       setAnalysisView(false);
-    });
+    }
   }
 
   function setAnalysisView(showAnalysis) {

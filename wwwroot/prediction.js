@@ -168,6 +168,7 @@ window.StockPrediction = (function () {
     const list = Array.isArray(stocks) ? stocks : [];
     const selected = selectedStock || {};
     const selectedAnalysis = barsCache[selected.s] ? analyze(barsCache[selected.s]) : lastAnalysis;
+    const tableState = captureDataTableState();
     $("#analysisTitle").text(`${list.length} filtered stocks${selected.s ? ` · selected ${selected.s}` : ""}`);
     if (!list.length) {
       $("#predictionPanel").html('<div class="analysis-empty">No stocks match the current filter.</div>');
@@ -181,7 +182,7 @@ window.StockPrediction = (function () {
     note.className = "analysis-note";
     note.textContent = "Winning rate is the historical target-hit estimate for the model's recent samples, expressed from 0–100%. Trend score is a separate 0–5 technical alignment score, not a winning rate. Rows marked * are provisional until that stock's daily history has been synced. This stock-only model does not evaluate options or futures.";
     panel.appendChild(note);
-    initializeDataTable();
+    initializeDataTable(tableState);
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
@@ -267,11 +268,12 @@ window.StockPrediction = (function () {
         separator.setAttribute("aria-hidden", "true");
         cell.appendChild(separator);
       }
-      const item = document.createElement("span");
-      item.className = "sma-item";
       const icon = document.createElement("span");
       const positive = entry[1] != null && analysis.current >= entry[1];
-      icon.className = positive ? "sma-positive" : entry[1] == null ? "sma-neutral" : "sma-negative";
+      const statusClass = positive ? "positive" : entry[1] == null ? "neutral" : "negative";
+      const item = document.createElement("span");
+      item.className = `sma-item sma-${statusClass}`;
+      icon.className = `sma-icon sma-${statusClass}`;
       icon.textContent = entry[1] == null ? "•" : positive ? "▲" : "▼";
       icon.title = `${entry[0]}: ${entry[1] == null ? "not enough history" : positive ? "positive, price above average" : "negative, price below average"}`;
       icon.setAttribute("aria-label", icon.title);
@@ -286,6 +288,10 @@ window.StockPrediction = (function () {
 
   function appendStockCell(row, stock) {
     const cell = document.createElement("td");
+    cell.className = "prediction-stock-cell";
+    cell.dataset.symbol = stock.s;
+    cell.tabIndex = 0;
+    cell.title = `Show ${stock.s} chart`;
     const symbol = document.createElement("b");
     symbol.textContent = stock.s;
     const name = document.createElement("small");
@@ -316,19 +322,42 @@ window.StockPrediction = (function () {
     row.appendChild(cell);
   }
 
-  function initializeDataTable() {
+  function captureDataTableState() {
+    const table = document.getElementById("predictionTable");
+    if (!table || !window.jQuery || !jQuery.fn.dataTable || !jQuery.fn.dataTable.isDataTable(table)) return null;
+    const api = jQuery(table).DataTable();
+    const info = api.page.info();
+    const signalFilter = document.getElementById("signalFilter");
+    const state = {
+      page: info.page,
+      length: info.length,
+      search: api.search(),
+      order: api.order(),
+      signal: signalFilter ? signalFilter.value : ""
+    };
+    api.destroy(true);
+    return state;
+  }
+
+  function initializeDataTable(previousState) {
     const table = document.getElementById("predictionTable");
     if (!table || !window.jQuery || !jQuery.fn.DataTable) return;
+    const state = previousState || {};
+    const length = state.length || 25;
     jQuery(table).DataTable({
-      pageLength: 25,
+      pageLength: length,
+      displayStart: (state.page || 0) * length,
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
-      order: [[7, "desc"]],
+      order: state.order || [[7, "desc"]],
+      search: { search: state.search || "" },
+      searchCols: [null, { search: state.signal ? `^${state.signal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$` : "" }],
       autoWidth: false,
       language: { search: "Filter stocks:", emptyTable: "No stock predictions available" },
       initComplete: function () {
         const tableApi = this.api();
         const signalFilter = document.getElementById("signalFilter");
         if (signalFilter) {
+          signalFilter.value = state.signal || "";
           signalFilter.addEventListener("change", function () {
             const value = this.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             tableApi.column(1).search(value ? `^${value}$` : "", true, false).draw();
