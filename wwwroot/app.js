@@ -33,6 +33,7 @@
   const NIFTY_STOCK = { s: "^NSEI", n: "Nifty 50 Index", i: "Index" };
 
   const SETTINGS_KEY = "nseCharts.settings";
+  const SYNC_STORE_KEY = "nseCharts.symbolSync";
   const DEFAULT_SETTINGS = {
     theme: "light",
     density: "compact",
@@ -59,6 +60,8 @@
   let filtered = [];
   let activeIndex = -1;
   let quoteCache = {};
+  let syncStore = loadSyncStore();
+  let syncInProgress = false;
   const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist }
   const candleCache = {};  // tfKey -> full (unsliced) candle array for the current symbol
   const candleCacheRange = {}; // tfKey -> Yahoo range string used to fetch the current candleCache
@@ -95,8 +98,9 @@
     }
 
     STOCKS = data;
+    renderList(STOCKS, "");
     refreshFilteredList();
-    loadChangeDataForList(data);
+    syncPendingSymbols(data);
 
     if (SETTINGS.rememberSelectedSymbol && SETTINGS.lastSelectedSymbol) {
       restoreSavedSelection();
@@ -125,6 +129,7 @@
 
   function rowHtml(s, i) {
     const meta = getQuoteMeta(s);
+    const syncStatus = getSyncStatus(s.s);
     const badge = meta && Number.isFinite(meta.changePct)
       ? `<span class="move-pill ${meta.changePct > 0 ? "up" : meta.changePct < 0 ? "down" : "flat"}">${fmtPercent(meta.changePct)}</span>`
       : "";
@@ -134,6 +139,7 @@
       `<span class="sym">${s.s}</span>` +
       `${badge}` +
       `</span>` +
+      `<span class="sync-dot ${syncStatus}" title="${syncStatusLabel(syncStatus)}"></span>` +
       `<span class="sector">${escapeHtml(s.i)}</span>` +
       `</div>`
     );
@@ -191,6 +197,66 @@
     const mode = getFilterMode();
     const hasCriteria = query.length > 0 || mode !== "all";
     $("#listMeta").text(hasCriteria ? `${filtered.length} of ${total}` : `${total} symbols`);
+    updateSyncSummary();
+  }
+
+  function getWorkingDayKey(date) {
+    const day = new Date(date);
+    const weekday = day.getDay();
+    if (weekday === 6) day.setDate(day.getDate() - 1);
+    if (weekday === 0) day.setDate(day.getDate() - 2);
+    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+  }
+
+  function loadSyncStore() {
+    const today = getWorkingDayKey(new Date());
+    try {
+      const saved = JSON.parse(localStorage.getItem(SYNC_STORE_KEY) || "null");
+      if (saved && saved.workingDay === today) {
+        quoteCache = saved.quotes || {};
+        return { workingDay: today, symbols: saved.symbols || {}, quotes: quoteCache };
+      }
+    } catch (e) { /* storage unavailable or invalid — start a fresh day */ }
+    return { workingDay: today, symbols: {}, quotes: {} };
+  }
+
+  function saveSyncStore() {
+    syncStore.quotes = quoteCache;
+    try { localStorage.setItem(SYNC_STORE_KEY, JSON.stringify(syncStore)); }
+    catch (e) { /* storage unavailable — syncing still works for this session */ }
+  }
+
+  function getSyncStatus(symbol) {
+    ensureCurrentWorkingDay();
+    return (syncStore.symbols[String(symbol).toUpperCase()] || {}).status || "pending";
+  }
+
+  function ensureCurrentWorkingDay() {
+    const today = getWorkingDayKey(new Date());
+    if (syncStore.workingDay === today) return;
+    quoteCache = {};
+    syncStore = { workingDay: today, symbols: {}, quotes: quoteCache };
+    saveSyncStore();
+  }
+
+  function syncStatusLabel(status) {
+    return ({ synced: "Synced", syncing: "Syncing", error: "Sync failed", pending: "Pending sync" })[status] || "Pending sync";
+  }
+
+  function updateSyncSummary() {
+    const total = STOCKS.length;
+    const synced = STOCKS.filter((stock) => getSyncStatus(stock.s) === "synced").length;
+    $("#syncSummary").text(total ? `${synced}/${total} synced` : "");
+    $("#syncNowBtn, #syncPendingBtn").prop("disabled", syncInProgress || !total);
+  }
+
+  function setSyncStatus(symbol, status, error) {
+    syncStore.symbols[String(symbol).toUpperCase()] = {
+      status,
+      syncedAt: status === "synced" ? new Date().toISOString() : null,
+      error: error || null
+    };
+    saveSyncStore();
   }
 
   function matchesFilter(stock, mode) {
@@ -385,6 +451,9 @@
     resetChartLayout();
     if (currentStock) loadSymbol(currentStock);
   });
+
+  $("#syncNowBtn").on("click", function () { syncSymbols(STOCKS); });
+  $("#syncPendingBtn").on("click", function () { syncPendingSymbols(STOCKS); });
 
   /* ---------------------------------------------------------
      5. Chart panel scaffolding (built once)
@@ -1165,7 +1234,18 @@
     return err.description || err.code || null;
   }
 
-  function loadChangeDataForList(stocks) {
+  function syncPendingSymbols(stocks) {
+    const pending = stocks.filter((stock) => getSyncStatus(stock.s) !== "synced");
+    return syncSymbols(pending);
+  }
+
+  function syncSymbols(stocks) {
+    if (syncInProgress || !stocks.length) return Promise.resolve();
+    syncInProgress = true;
+    updateSyncSummary();
+    stocks.forEach((stock) => setSyncStatus(stock.s, "syncing"));
+    renderList(filtered, $("#searchInput").val().trim());
+
     const source = DataSources.get(SETTINGS.dataSource);
     const queue = stocks.slice();
     const concurrency = 6;
@@ -1213,7 +1293,10 @@
             }
           }
 
-          if (!payload) continue;
+          if (!payload) {
+            setSyncStatus(stock.s, "error", "No data returned");
+            continue;
+          }
 
           quoteCache[stock.s] = payload;
           quoteCache[stock.s.toUpperCase()] = payload;
@@ -1222,11 +1305,13 @@
           quoteCache[resolved] = payload;
           quoteCache[resolved.toUpperCase()] = payload;
           quoteCache[resolved.toLowerCase()] = payload;
+          setSyncStatus(stock.s, "synced");
 
           if (filtered.some((item) => item.s === stock.s) || getFilterMode() !== "all") {
             refreshFilteredList();
           }
         } catch (err) {
+          setSyncStatus(stock.s, "error", err && err.message ? err.message : "Sync failed");
           console.warn(`[${stock.s}] change load failed`, err);
         }
       }
@@ -1234,7 +1319,10 @@
 
     const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
     return Promise.allSettled(workers).then(() => {
+      syncInProgress = false;
+      saveSyncStore();
       refreshFilteredList();
+      updateSyncSummary();
     });
   }
 
