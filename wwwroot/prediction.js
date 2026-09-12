@@ -127,9 +127,9 @@ window.StockPrediction = (function () {
     clearLines(tfKey, chartInfo);
     if (!analysis) return;
     const lines = [
-      { price: analysis.entry, color: "#2563eb", title: "ENTRY" },
-      { price: analysis.target, color: "#1b8f7c", title: "TARGET" },
-      { price: analysis.stop, color: "#d8393d", title: "STOP" }
+      { price: analysis.entry, color: "#2563eb", title: "" },
+      { price: analysis.target, color: "#1b8f7c", title: "" },
+      { price: analysis.stop, color: "#d8393d", title: "" }
     ];
     chartInfo.levelPrices = lines.map((line) => line.price).filter(Number.isFinite);
     activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
