@@ -224,7 +224,7 @@ window.StockPrediction = (function () {
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
-    const headers = ["Stock", "Signal", "Winning rate", "Entry", "Target", "Target %", "Stop loss", "Loss %", "Trend score", "Momentum", "SMA alignment"];
+    const headers = ["◫ Stock", "◆ Signal", "◎ Winning rate", "• Entry", "▲ Target", "↗ Target %", "▼ Stop loss", "↘ Loss %", "✦ Trend score", "∿ Momentum", "⌁ SMA alignment"];
     const wrapper = document.createElement("div");
     wrapper.className = "analysis-table-wrap";
     const toolbar = document.createElement("div");
@@ -242,6 +242,21 @@ window.StockPrediction = (function () {
       signalFilter.appendChild(option);
     });
     toolbar.append(filterLabel, signalFilter);
+    const viewToggle = document.createElement("div");
+    viewToggle.className = "prediction-view-toggle";
+    viewToggle.setAttribute("aria-label", "Analysis layout");
+    ["table", "cards"].forEach((mode) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "view-mode-btn";
+      button.dataset.viewMode = mode;
+      button.textContent = mode === "table" ? "Table" : "Cards";
+      button.setAttribute("aria-pressed", String(getTableViewMode() === mode));
+      button.addEventListener("click", () => setTableViewMode(wrapper, mode));
+      viewToggle.appendChild(button);
+    });
+    toolbar.appendChild(viewToggle);
+    wrapper.classList.toggle("card-mode", getTableViewMode() === "cards");
     wrapper.appendChild(toolbar);
     const table = document.createElement("table");
     table.id = "predictionTable";
@@ -275,7 +290,7 @@ window.StockPrediction = (function () {
       appendCell(row, analysis.signal, false, `signal-${analysis.direction}`);
       appendCell(row, `${analysis.probability}%${analysis.provisional ? "*" : ""}`, false, "", "", analysis.probability);
       appendCell(row, money(analysis.current));
-      appendCell(row, money(analysis.target), false, "value-up", analysis.provisional ? "quote estimate" : "");
+      appendCell(row, money(analysis.target), false, "value-up");
       appendCell(row, percent(targetDelta), false, "value-up", "", targetDelta);
       appendCell(row, money(analysis.stop), false, "value-down");
       appendCell(row, percent(stopDelta), false, "value-down", "", stopDelta);
@@ -287,6 +302,22 @@ window.StockPrediction = (function () {
     table.appendChild(tbody);
     wrapper.appendChild(table);
     return wrapper;
+  }
+
+  function getTableViewMode() {
+    try {
+      const saved = localStorage.getItem("nseCharts.analysisViewMode");
+      if (saved === "table" || saved === "cards") return saved;
+    } catch (error) { /* use the responsive default */ }
+    return window.matchMedia && window.matchMedia("(max-width: 760px)").matches ? "cards" : "table";
+  }
+
+  function setTableViewMode(wrapper, mode) {
+    try { localStorage.setItem("nseCharts.analysisViewMode", mode); } catch (error) { /* preference is optional */ }
+    wrapper.classList.toggle("card-mode", mode === "cards");
+    wrapper.querySelectorAll(".view-mode-btn").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.viewMode === mode));
+    });
   }
 
   function appendSmaCell(row, analysis) {
