@@ -637,7 +637,7 @@
         fontFamily: "IBM Plex Mono, monospace",
         fontSize: isMobile ? 8 : 9
       },
-      grid: { vertLines: { color: border }, horzLines: { color: border } },
+      grid: { vertLines: { color: border, visible: false }, horzLines: { color: border, visible: false } },
       rightPriceScale: { borderColor: border, scaleMargins: { top: 0.05, bottom: 0.05 } },
       leftPriceScale: { visible: false },
       timeScale: {
@@ -1132,8 +1132,8 @@
     const change = last.close - prev.close;
     const pct = prev.close ? (change / prev.close) * 100 : 0;
     const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
-    const changeText = `${change > 0 ? "+" : change < 0 ? "-" : ""}${fmt(Math.abs(change))} (${pct >= 0 ? "+" : "-"}${fmt(Math.abs(pct))}%)`;
-    let headline = `<span class="panel-change ${dir}">Δ ${changeText}</span>`;
+    const changeText = `${pct >= 0 ? "+" : "-"}${fmt(Math.abs(pct))}%`;
+    let headline = `<span class="panel-change ${dir} title='% Change'">Δ ${changeText}</span>`;
     if (SETTINGS.rsiEnabled && rsiWin.length) headline += ` <span>RSI ${fmt(rsiWin[rsiWin.length - 1].value)}</span>`;
     if (SETTINGS.macdEnabled && macdWin.length && sigWin.length) {
       headline += ` <span>MACD ${fmt(macdWin[macdWin.length - 1].value)}/${fmt(sigWin[sigWin.length - 1].value)}</span>`;
