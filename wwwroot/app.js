@@ -63,6 +63,8 @@
   let quoteCache = {};
   let syncStore = loadSyncStore();
   let syncInProgress = false;
+  let syncStopRequested = false;
+  const syncAbortControllers = new Set();
   const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist }
   const candleCache = {};  // tfKey -> full (unsliced) candle array for the current symbol
   const candleCacheRange = {}; // tfKey -> Yahoo range string used to fetch the current candleCache
@@ -266,6 +268,7 @@
     const synced = STOCKS.filter((stock) => getSyncStatus(stock.s) === "synced").length;
     $("#syncSummary").text(total ? `${synced}/${total} synced` : "");
     $("#syncNowBtn, #syncPendingBtn").prop("disabled", syncInProgress || !total);
+    $("#stopSyncBtn").prop("disabled", !syncInProgress);
   }
 
   function setSyncStatus(symbol, status, error) {
@@ -388,6 +391,7 @@
     if (INVALID_SYMBOLS.has(String(q || "").trim().toUpperCase())) return;
     activeIndex = -1;
     $(".stock-row, .pinned-row").removeClass("active");
+    setAnalysisView(false);
     loadSymbol({ s: q, n: q, i: "Custom" });
     updateNavButtons();
   }
@@ -477,6 +481,11 @@
 
   $("#syncNowBtn").on("click", function () { syncSymbols(STOCKS); });
   $("#syncPendingBtn").on("click", function () { syncPendingSymbols(STOCKS); });
+  $("#stopSyncBtn").on("click", function () {
+    if (!syncInProgress) return;
+    syncStopRequested = true;
+    syncAbortControllers.forEach((controller) => controller.abort());
+  });
 
   /* ---------------------------------------------------------
      5. Chart panel scaffolding (built once)
@@ -1281,6 +1290,7 @@
   function syncSymbols(stocks) {
     if (syncInProgress || !stocks.length) return Promise.resolve();
     syncInProgress = true;
+    syncStopRequested = false;
     updateSyncSummary();
     stocks.forEach((stock) => setSyncStatus(stock.s, "syncing"));
     renderList(filtered, $("#searchInput").val().trim());
@@ -1291,7 +1301,7 @@
     let index = 0;
 
     const worker = async () => {
-      while (index < queue.length) {
+      while (index < queue.length && !syncStopRequested) {
         const currentIndex = index++;
         const stock = queue[currentIndex];
         if (!stock) continue;
@@ -1305,8 +1315,11 @@
           for (const symbol of candidates) {
             const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
             try {
-              const { promise } = fetchWithControllerProxy(proxyUrl);
+              const request = fetchWithControllerProxy(proxyUrl);
+              syncAbortControllers.add(request.controllers[0]);
+              const { promise } = request;
               const json = await promise;
+              syncAbortControllers.delete(request.controllers[0]);
               if (extractYahooError(json)) {
                 notFound = true;
                 continue;
@@ -1337,6 +1350,7 @@
               };
               break;
             } catch (err) {
+              if (err && err.name === "AbortError") break;
               // Try the next symbol candidate if this one fails.
             }
           }
@@ -1367,6 +1381,12 @@
 
     const workers = Array.from({ length: Math.min(concurrency, queue.length) }, () => worker());
     return Promise.allSettled(workers).then(() => {
+      syncAbortControllers.clear();
+      if (syncStopRequested) {
+        stocks.forEach((stock) => {
+          if (getSyncStatus(stock.s) === "syncing") setSyncStatus(stock.s, "pending");
+        });
+      }
       syncInProgress = false;
       saveSyncStore();
       refreshFilteredList();

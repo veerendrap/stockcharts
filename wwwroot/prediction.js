@@ -186,7 +186,7 @@ window.StockPrediction = (function () {
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
-    const headers = ["Stock", "Signal", "Entry", "Target", "Target %", "Stop loss", "Loss %", "Winning rate", "Trend score", "Momentum", "SMA alignment"];
+    const headers = ["Stock", "Signal", "Winning rate", "Entry", "Target", "Target %", "Stop loss", "Loss %", "Trend score", "Momentum", "SMA alignment"];
     const wrapper = document.createElement("div");
     wrapper.className = "analysis-table-wrap";
     const toolbar = document.createElement("div");
@@ -224,7 +224,7 @@ window.StockPrediction = (function () {
       const row = document.createElement("tr");
       if (stock.s === selected.s) row.className = "selected-prediction";
       if (!analysis) {
-        appendCell(row, stock.s, true);
+        appendStockCell(row, stock);
         appendCell(row, "Waiting for daily data");
         for (let index = 2; index < headers.length; index++) appendCell(row, "—");
         tbody.appendChild(row);
@@ -235,12 +235,12 @@ window.StockPrediction = (function () {
       const stopDelta = stopPercent(analysis);
       appendStockCell(row, stock);
       appendCell(row, analysis.signal, false, `signal-${analysis.direction}`);
+      appendCell(row, `${analysis.probability}%${analysis.provisional ? "*" : ""}`, false, "", "", analysis.probability);
       appendCell(row, money(analysis.current));
       appendCell(row, money(analysis.target), false, "value-up", analysis.provisional ? "quote estimate" : "");
       appendCell(row, percent(targetDelta), false, "value-up", "", targetDelta);
       appendCell(row, money(analysis.stop), false, "value-down");
       appendCell(row, percent(stopDelta), false, "value-down", "", stopDelta);
-      appendCell(row, `${analysis.probability}%${analysis.provisional ? "*" : ""}`, false, "", "", analysis.probability);
       appendCell(row, `${analysis.trendScore}/5`, false, "", "", analysis.trendScore);
       appendCell(row, analysis.momentum == null ? "—" : percent(analysis.momentum));
       appendSmaCell(row, analysis);
@@ -348,7 +348,7 @@ window.StockPrediction = (function () {
       pageLength: length,
       displayStart: (state.page || 0) * length,
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
-      order: state.order || [[7, "desc"]],
+      order: state.order || [[2, "desc"]],
       search: { search: state.search || "" },
       searchCols: [null, { search: state.signal ? `^${state.signal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$` : "" }],
       autoWidth: false,
@@ -380,7 +380,8 @@ window.StockPrediction = (function () {
       drawLevels(tfKey, chartInfo, analysis);
       if (tfKey === "D") cacheBars(stock.s, bars);
     }
-    renderCollection(stocks || [stock], quoteMap || {}, stock, null);
+    const analysisStocks = stocks && stocks.length ? stocks : stock && stock.i === "Custom" ? [stock] : [];
+    renderCollection(analysisStocks, quoteMap || {}, stock, null);
     if (!stock || !stock.s) return analysis;
     try {
       const symbol = stock.s.startsWith("^") || stock.s.includes(".") ? stock.s : `${stock.s}.NS`;
@@ -388,7 +389,7 @@ window.StockPrediction = (function () {
       if (!response.ok) return analysis;
       const json = await response.json();
       const quote = json && json.quoteResponse && json.quoteResponse.result && json.quoteResponse.result[0];
-      renderCollection(stocks || [stock], quoteMap || {}, stock, quote || null);
+      renderCollection(analysisStocks, quoteMap || {}, stock, quote || null);
     } catch (error) {
       // Chart-derived analysis remains useful when quote fundamentals are unavailable.
     }
@@ -402,7 +403,11 @@ window.StockPrediction = (function () {
   }
 
   function renderUniverse(stocks, quoteMap, selectedStock) {
-    renderCollection(stocks, quoteMap, selectedStock, null);
+    const list = Array.isArray(stocks) ? stocks.slice() : [];
+    if (selectedStock && selectedStock.i === "Custom" && !list.some((stock) => stock.s === selectedStock.s)) {
+      list.unshift(selectedStock);
+    }
+    renderCollection(list, quoteMap, selectedStock, null);
   }
 
   function hasBars(symbol) {
