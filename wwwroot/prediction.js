@@ -12,8 +12,8 @@ window.StockPrediction = (function () {
   let lastAnalysis = null;
   let analysisViewMode = null;
 
-  function analyze(bars) {
-    if (!Array.isArray(bars) || bars.length < 60) return null;
+  function analyze(bars, minimumBars = 60) {
+    if (!Array.isArray(bars) || bars.length < minimumBars) return null;
     const closes = bars.map((bar) => bar.close);
     const current = bars[bars.length - 1].close;
     const sma5 = movingAverage(closes, 5);
@@ -65,21 +65,23 @@ window.StockPrediction = (function () {
 
   // Walks forward through recent history and counts whether target or stop wins first.
   function estimateHitRate(bars, atr) {
-    const lookback = Math.min(100, bars.length - 31);
+    const horizon = Math.min(10, Math.max(3, Math.floor(bars.length / 4)));
+    const lookback = Math.min(100, bars.length - horizon - 1);
+    if (lookback < 3) return null;
     let wins = 0, samples = 0;
-    for (let index = bars.length - lookback - 1; index < bars.length - 10; index++) {
+    for (let index = bars.length - lookback - 1; index < bars.length - horizon; index++) {
       const entry = bars[index].close;
       const localAtr = average(bars.slice(Math.max(0, index - 13), index + 1).map((bar) => bar.high - bar.low)) || atr;
       const target = entry + localAtr * 3;
       const stop = entry - localAtr * 1.5;
       let result = null;
-      for (let forward = index + 1; forward <= Math.min(index + 10, bars.length - 1); forward++) {
+      for (let forward = index + 1; forward <= Math.min(index + horizon, bars.length - 1); forward++) {
         if (bars[forward].low <= stop) { result = false; break; }
         if (bars[forward].high >= target) { result = true; break; }
       }
       if (result !== null) { samples++; if (result) wins++; }
     }
-    return samples >= 8 ? Math.round((wins / samples) * 100) : 50;
+    return samples >= 3 ? Math.round((wins / samples) * 100) : null;
   }
 
   function average(values) {
@@ -469,7 +471,7 @@ window.StockPrediction = (function () {
   }
 
   async function update(stock, bars, chartInfo, tfKey, stocks, quoteMap) {
-    const analysis = analyze(bars);
+    const analysis = analyze(bars, tfKey === "D" ? 60 : 20);
     lastAnalysis = analysis;
     if (stock && stock.s && analysis) {
       if (!timeframeAnalyses[stock.s]) timeframeAnalyses[stock.s] = {};
