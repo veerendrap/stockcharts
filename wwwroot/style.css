@@ -11,8 +11,8 @@
   --panel-alt: #F0F2F5;
   --border:    #E1E4E9;
   --text:      #1B222B;
-  --text-dim:  #626D7A;
-  --text-faint:#9AA4B0;
+  --text-dim:  #4B5563;
+  --text-faint:#6B7280;
 
   --amber:     #B45309;
   --amber-soft:#FFF4E0;
@@ -48,8 +48,8 @@
   --panel-alt: #171C22;
   --border:    #2A323C;
   --text:      #F5F7F9;
-  --text-dim:  #C3CBD4;
-  --text-faint:#8A94A0;
+  --text-dim:  #D1D7DE;
+  --text-faint:#AAB4C0;
 
   --amber:     #F0B90B;
   --amber-soft:#241D08;
@@ -568,8 +568,8 @@ kbd{
 .prediction-table-toolbar label{ color:var(--text-dim); font:700 10px var(--font-mono); }
 .signal-filter{ min-width:125px; padding:5px 7px; border:1px solid var(--border); border-radius:4px; background:var(--panel); color:var(--text); font:10px var(--font-mono); }
 .prediction-grid{ width:100%; min-width:780px; border-collapse:collapse; font-size:11px; }
-.dataTables_wrapper{ padding:10px 12px 4px; color:var(--text-dim); font:10px var(--font-mono); }
-.dataTables_wrapper .dataTables_filter label,.dataTables_wrapper .dataTables_length label{ color:var(--text-dim); font-weight:700; }
+.dataTables_wrapper{ padding:10px 12px 4px; color:var(--text); font:10px var(--font-mono); }
+.dataTables_wrapper .dataTables_filter label,.dataTables_wrapper .dataTables_length label{ color:var(--text); font-weight:700; }
 .dataTables_wrapper .dataTables_filter input,.dataTables_wrapper .dataTables_length select{ background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:4px; padding:4px 6px; font:10px var(--font-mono); }
 .dataTables_wrapper .dataTables_filter input{ margin-left:5px; }
 .dataTables_wrapper .dataTables_length select{ margin:0 4px; }
@@ -579,7 +579,7 @@ kbd{
 .dataTables_wrapper .dataTables_processing{ background:var(--panel); color:var(--text); border:1px solid var(--border); }
 .prediction-grid{ border:1px solid var(--border); border-radius:6px; overflow:hidden; }
 .prediction-grid th{ padding:11px 12px; text-align:left; background:linear-gradient(135deg,var(--panel-alt),var(--amber-soft)); color:var(--text); border-bottom:2px solid var(--amber); font:700 9px var(--font-mono); white-space:nowrap; }
-.prediction-grid td{ padding:10px 12px; border-top:1px solid var(--border); white-space:nowrap; font-family:var(--font-mono); transition:background .12s ease; }
+.prediction-grid td{ padding:10px 12px; border-top:1px solid var(--border); white-space:nowrap; color:var(--text); font-family:var(--font-mono); transition:background .12s ease; }
 .prediction-grid tbody tr:hover td{ background:var(--amber-soft); }
 .prediction-grid tbody tr:nth-child(even) td{ background:color-mix(in srgb,var(--panel-alt) 38%,transparent); }
 .prediction-grid tbody tr:nth-child(even):hover td{ background:var(--amber-soft); }
@@ -593,13 +593,16 @@ kbd{
 .prediction-grid .signal-down{ color:var(--down); font-weight:800; }
 .prediction-grid .signal-flat{ color:var(--amber); font-weight:800; }
 .prediction-chart-cell{ width:44px; text-align:center; }
-.row-chart-btn{ width:26px; height:25px; padding:0; border:1px solid var(--border); border-radius:5px; background:var(--panel-alt); color:var(--text-dim); font:700 15px/1 var(--font-mono); cursor:pointer; }
+.row-chart-btn{ width:28px; height:26px; padding:0 0 2px; border:1px solid var(--border); border-radius:5px; background:var(--panel-alt); color:var(--text); font:700 18px/1 var(--font-ui); cursor:pointer; justify-content: center;}
 .row-chart-btn:hover,.row-chart-btn:focus-visible{ border-color:var(--amber); color:var(--amber); background:var(--amber-soft); outline:none; }
-.sma-alignment{ font-size:12px; letter-spacing:0; }
+.sma-alignment{ display:flex; align-items:center; gap:4px; font-size:11px; letter-spacing:0; }
+.sma-item{ display:inline-flex; align-items:center; gap:3px; min-width:29px; padding:3px 5px; border:1px solid var(--border); border-radius:4px; background:var(--panel-alt); font-weight:700; line-height:1; }
+.sma-item small{ display:inline; margin:0 !important; color:var(--text-faint); font:700 9px/1 var(--font-mono) !important; max-width:none !important; overflow:visible !important; }
+.sma-item span{ font-size:11px; line-height:1; }
 .sma-positive{ color:var(--up); }
 .sma-negative{ color:var(--down); }
 .sma-neutral{ color:var(--text-faint); }
-.sma-separator{ color:var(--text-faint); padding:0 2px; }
+.sma-connector{ color:var(--text-faint); font-size:15px; font-weight:700; line-height:1; }
 .chart-grid{
   display:grid;
   grid-template-columns:1fr 1fr;

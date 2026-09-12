@@ -262,18 +262,24 @@ window.StockPrediction = (function () {
     entries.forEach((entry, index) => {
       if (index > 0) {
         const separator = document.createElement("span");
-        separator.className = "sma-separator";
-        separator.textContent = " - ";
+        separator.className = "sma-connector";
+        separator.textContent = "›";
         separator.setAttribute("aria-hidden", "true");
         cell.appendChild(separator);
       }
+      const item = document.createElement("span");
+      item.className = "sma-item";
       const icon = document.createElement("span");
       const positive = entry[1] != null && analysis.current >= entry[1];
       icon.className = positive ? "sma-positive" : entry[1] == null ? "sma-neutral" : "sma-negative";
       icon.textContent = entry[1] == null ? "•" : positive ? "▲" : "▼";
       icon.title = `${entry[0]}: ${entry[1] == null ? "not enough history" : positive ? "positive, price above average" : "negative, price below average"}`;
       icon.setAttribute("aria-label", icon.title);
-      cell.appendChild(icon);
+      const label = document.createElement("small");
+      label.textContent = entry[0].replace("SMA", "");
+      label.setAttribute("aria-hidden", "true");
+      item.append(label, icon);
+      cell.appendChild(item);
     });
     row.appendChild(cell);
   }
@@ -290,7 +296,7 @@ window.StockPrediction = (function () {
     button.dataset.symbol = stock.s;
     button.title = `Show ${stock.s} chart`;
     button.setAttribute("aria-label", `Show ${stock.s} chart`);
-    button.textContent = "▥";
+    button.textContent = "↗";
     cell.append(symbol, button, name);
     row.appendChild(cell);
   }
