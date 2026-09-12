@@ -156,10 +156,9 @@
     return (
       `<div class="stock-row" data-idx="${i}" data-sym="${s.s}">` +
       `<span class="sym-wrap">` +
-      `<span class="sym">${s.s}</span>` +
+      `<span class="sym sync-${syncStatus}">${s.s}</span>` +
       `${badge}` +
       `</span>` +
-      `<span class="sync-dot ${syncStatus}" title="${syncStatusLabel(syncStatus)}"></span>` +
       `<span class="sector">${escapeHtml(s.i)}</span>` +
       `</div>`
     );
@@ -257,10 +256,6 @@
     quoteCache = {};
     syncStore = { workingDay: today, symbols: {}, quotes: quoteCache };
     saveSyncStore();
-  }
-
-  function syncStatusLabel(status) {
-    return ({ synced: "Synced", syncing: "Syncing", error: "Sync failed", "not-found": "Symbol not found", pending: "Pending sync" })[status] || "Pending sync";
   }
 
   function updateSyncSummary() {

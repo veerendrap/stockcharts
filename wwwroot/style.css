@@ -274,7 +274,7 @@ kbd{
   background:var(--panel-alt);
   border:1px solid var(--border);
   border-radius:4px;
-  padding:1px 5px;
+  padding:1px 1px;
   font-family:var(--font-mono);
   font-size:10px;
 }
@@ -319,17 +319,18 @@ kbd{
   color:var(--text);
   min-width:0;
 }
+.stock-row .sym.sync-pending,.stock-row .sym.sync-syncing{ color:var(--tf-w); }
+.stock-row .sym.sync-error,.stock-row .sym.sync-not-found{ color:var(--down); }
 .stock-row.active .sym{ color:var(--amber); }
 .stock-row .move-pill{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding:1px 5px;
+  padding:1px 1px;
   border-radius:999px;
   font-size:8.5px;
   font-weight:700;
   white-space:nowrap;
-  min-width:44px;
 }
 .stock-row .move-pill.up{ background:rgba(27,143,124,.12); color:var(--up); }
 .stock-row .move-pill.down{ background:rgba(216,57,61,.12); color:var(--down); }
@@ -342,17 +343,6 @@ kbd{
   color:var(--down);
   font:800 11px var(--font-mono);
 }
-.stock-row .sync-dot{
-  width:6px;
-  height:6px;
-  border-radius:50%;
-  background:var(--text-faint);
-  flex-shrink:0;
-}
-.stock-row .sync-dot.synced{ background:var(--up); }
-.stock-row .sync-dot.syncing{ background:var(--amber); animation:sync-pulse 1s ease-in-out infinite; }
-.stock-row .sync-dot.error{ background:var(--down); }
-@keyframes sync-pulse{ 50%{ opacity:.35; } }
 .stock-row .sector{
   font-size:9.5px;
   color:var(--text-faint);
