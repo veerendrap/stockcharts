@@ -549,7 +549,17 @@
         priceLineVisible: false, lastValueVisible: false
       });
 
-      charts[tf.key] = { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost };
+      charts[tf.key] = { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, levelPrices: [] };
+      series.applyOptions({
+        autoscaleInfoProvider: (originalProvider) => {
+          const info = originalProvider();
+          const prices = charts[tf.key].levelPrices.filter(Number.isFinite);
+          if (!info || !prices.length) return info;
+          info.priceRange.minValue = Math.min(info.priceRange.minValue, ...prices);
+          info.priceRange.maxValue = Math.max(info.priceRange.maxValue, ...prices);
+          return info;
+        }
+      });
       applyPaneLayout(tf.key);
       setPanelVisible(tf.key, SETTINGS.visible[tf.key]);
       bindCrosshairTooltip(tf.key, host, chart, series);

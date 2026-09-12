@@ -23,7 +23,8 @@ window.StockPrediction = (function () {
     const momentum = closes.length > 20 ? ((current / closes[closes.length - 21]) - 1) * 100 : 0;
     const trendScore = scoreTrend(current, sma20, sma50, rsi, momentum);
     const entry = current;
-    const stop = Math.max(0, entry - atr * 1.5);
+    const riskDistance = Math.max(atr * 1.5, entry * 0.005);
+    const stop = Math.max(0, entry - riskDistance);
     const risk = entry - stop;
     const target = entry + risk * 2;
     const probability = estimateHitRate(bars, atr);
@@ -112,6 +113,7 @@ window.StockPrediction = (function () {
       try { chartInfo.series.removePriceLine(line); } catch (error) { /* chart may have been recreated */ }
     });
     activeLines[tfKey] = [];
+    if (chartInfo) chartInfo.levelPrices = [];
     const labels = chartInfo && chartInfo.levelsHost ? chartInfo.levelsHost : null;
     if (labels) labels.innerHTML = "";
   }
@@ -125,23 +127,28 @@ window.StockPrediction = (function () {
       { price: analysis.target, color: "#1b8f7c", title: "TARGET" },
       { price: analysis.stop, color: "#d8393d", title: "STOP" }
     ];
+    chartInfo.levelPrices = lines.map((line) => line.price).filter(Number.isFinite);
     activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
       price: line.price, color: line.color, lineWidth: 2,
       lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true, title: ""
+      axisLabelVisible: true, title: line.title
     }));
     if (chartInfo.levelsHost) {
       const labels = chartInfo.levelsHost;
       if (labels) {
-        labels.innerHTML = lines.map((line) => {
+        const levels = lines.map((line) => {
           const delta = ((line.price - analysis.entry) / analysis.entry) * 100;
           const icon = line.title === "ENTRY" ? "●" : line.title === "TARGET" ? "▲" : "▼";
-          const bracket = line.title === "ENTRY"
-            ? "0.0%"
-            : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}% ${line.title === "TARGET" ? "profit" : "loss"}`;
-          const description = `${line.title} level at ${money(line.price)}, ${bracket}`;
-          return `<div class="prediction-level ${line.title.toLowerCase()}" title="${description}" aria-label="${description}"><b aria-hidden="true">${icon}</b><span>${money(line.price)}</span><small>[${bracket}]</small></div>`;
+          const deltaText = `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`;
+          const description = line.title === "ENTRY"
+            ? `${line.title} level at ${money(line.price)}, 0.0% reference`
+            : `${line.title} level at ${money(line.price)}, ${deltaText} ${line.title === "TARGET" ? "profit" : "loss"}`;
+          const visibleDelta = line.title === "ENTRY" ? "" : `<small>[${deltaText}]</small>`;
+          return `<div class="prediction-level ${line.title.toLowerCase()}" title="${description}" aria-label="${description}"><b aria-hidden="true">${icon}</b><span>${money(line.price)}</span>${visibleDelta}</div>`;
         }).join("");
+        const winRate = Number.isFinite(analysis.probability) ? `${analysis.probability}%${analysis.provisional ? "*" : ""}` : "—";
+        const winRateDescription = `Winning rate: ${winRate.replace("*", "")}. Historical target-hit estimate from recent samples.`;
+        labels.innerHTML = `${levels}<div class="prediction-winrate" title="${winRateDescription}" aria-label="${winRateDescription}"><b aria-hidden="true">◎</b><span>${winRate}</span><small>WIN</small></div>`;
       }
     }
   }
@@ -175,14 +182,45 @@ window.StockPrediction = (function () {
       return;
     }
     const detail = selectedAnalysis && selectedQuote ? `<div class="analysis-fundamentals"><span>Selected fundamentals</span><b>Market cap ${formatFundamental(selectedQuote.marketCap)}</b><b>P/E ${formatFundamental(selectedQuote.trailingPE)}</b><b>EPS ${formatFundamental(selectedQuote.epsTrailingTwelveMonths)}</b><b>Yield ${selectedQuote.dividendYield == null ? "—" : `${(selectedQuote.dividendYield * 100).toFixed(2)}%`}</b></div>` : "";
+    const summary = buildAnalysisSummary(list, quoteMap, selectedQuote, selected);
     const panel = document.getElementById("predictionPanel");
-    panel.innerHTML = `<div class="analysis-kicker">LONG-ONLY TREND SETUPS · FILTERED UNIVERSE</div>${detail}`;
+    panel.innerHTML = `<div class="analysis-kicker">LONG-ONLY TREND SETUPS · FILTERED UNIVERSE</div>${detail}${summary}`;
     panel.appendChild(buildPredictionTable(list, quoteMap, selected));
     const note = document.createElement("p");
     note.className = "analysis-note";
     note.textContent = "Winning rate is the historical target-hit estimate for the model's recent samples, expressed from 0–100%. Trend score is a separate 0–5 technical alignment score, not a winning rate. Rows marked * are provisional until that stock's daily history has been synced. This stock-only model does not evaluate options or futures.";
     panel.appendChild(note);
     initializeDataTable(tableState);
+  }
+
+  function buildAnalysisSummary(stocks, quoteMap, selectedQuote, selectedStock) {
+    const counts = { total: stocks.length, buyHold: 0, watch: 0, avoid: 0, advances: 0, declines: 0, unchanged: 0 };
+    stocks.forEach((stock) => {
+      const analysis = barsCache[stock.s] ? analyze(barsCache[stock.s]) : provisionalAnalysis(quoteFor(stock, quoteMap));
+      if (analysis && analysis.signal === "BUY / HOLD") counts.buyHold++;
+      else if (analysis && analysis.signal === "WATCH") counts.watch++;
+      else if (analysis && analysis.signal === "AVOID") counts.avoid++;
+
+      const quote = quoteFor(stock, quoteMap);
+      const changePct = Number.isFinite(quote.changePct)
+        ? quote.changePct
+        : stock.s === selectedStock.s && selectedQuote && Number.isFinite(selectedQuote.regularMarketChangePercent)
+          ? selectedQuote.regularMarketChangePercent
+          : null;
+      if (changePct == null || Math.abs(changePct) < 0.01) counts.unchanged++;
+      else if (changePct > 0) counts.advances++;
+      else counts.declines++;
+    });
+    const cards = [
+      ["Total", counts.total, "total"],
+      ["BUY / HOLD", counts.buyHold, "buy"],
+      ["WATCH", counts.watch, "watch"],
+      ["AVOID", counts.avoid, "avoid"],
+      ["Advances", counts.advances, "advance"],
+      ["Declines", counts.declines, "decline"],
+      ["Unchanged", counts.unchanged, "unchanged"]
+    ];
+    return `<div class="analysis-summary-strip" aria-label="Analysis summary">${cards.map(([label, value, tone]) => `<div class="analysis-summary-card ${tone}"><span>${label}</span><b>${value}</b></div>`).join("")}</div>`;
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
