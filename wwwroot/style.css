@@ -632,7 +632,7 @@ kbd{
 .card-mode .prediction-grid td:nth-child(1){ display:block; grid-column:1 / -1; min-height:40px; padding:7px 8px; text-align:left; border:0; }
 .card-mode .prediction-grid td:nth-child(1)::before{ display:none; }
 .card-mode .prediction-grid td:nth-child(2)::before{ content:"◆ Signal"; }
-.card-mode .prediction-grid td:nth-child(3)::before{ content:"◎ Win rate"; }
+.card-mode .prediction-grid td:nth-child(3)::before{ content:"◎ Win rates"; }
 .card-mode .prediction-grid td:nth-child(4)::before{ content:"• Entry"; }
 .card-mode .prediction-grid td:nth-child(5)::before{ content:"▲ Target"; }
 .card-mode .prediction-grid td:nth-child(6)::before{ content:"↗ Target %"; }

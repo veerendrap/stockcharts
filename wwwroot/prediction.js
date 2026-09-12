@@ -8,6 +8,7 @@ window.StockPrediction = (function () {
 
   const activeLines = {};
   const barsCache = {};
+  const timeframeAnalyses = {};
   let lastAnalysis = null;
   let analysisViewMode = null;
 
@@ -225,7 +226,7 @@ window.StockPrediction = (function () {
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
-    const headers = ["◫ Stock", "◆ Signal", "◎ Winning rate", "• Entry", "▲ Target", "↗ Target %", "▼ Stop loss", "↘ Loss %", "✦ Trend score", "∿ Momentum", "⌁ SMA alignment"];
+    const headers = ["◫ Stock", "◆ Signal", "◎ Win rates", "• Entry", "▲ Target", "↗ Target %", "▼ Stop loss", "↘ Loss %", "✦ Trend score", "∿ Momentum", "⌁ SMA alignment"];
     const wrapper = document.createElement("div");
     wrapper.className = "analysis-table-wrap";
     const toolbar = document.createElement("div");
@@ -287,9 +288,10 @@ window.StockPrediction = (function () {
 
       const targetDelta = targetPercent(analysis);
       const stopDelta = stopPercent(analysis);
+      const winRates = formatWinRates(stock.s, analysis);
       appendStockCell(row, stock);
       appendCell(row, analysis.signal, false, `signal-${analysis.direction}`);
-      appendCell(row, `${analysis.probability}%${analysis.provisional ? "*" : ""}`, false, "", "", analysis.probability);
+      appendCell(row, winRates.text, false, "", "", analysis.probability);
       appendCell(row, money(analysis.current));
       appendCell(row, money(analysis.target), false, "value-up");
       appendCell(row, percent(targetDelta), false, "value-up", "", targetDelta);
@@ -303,6 +305,19 @@ window.StockPrediction = (function () {
     table.appendChild(tbody);
     wrapper.appendChild(table);
     return wrapper;
+  }
+
+  function formatWinRates(symbol, dailyAnalysis) {
+    const analyses = { D: dailyAnalysis, W: timeframeAnalyses[symbol] && timeframeAnalyses[symbol].W, M: timeframeAnalyses[symbol] && timeframeAnalyses[symbol].M };
+    const parts = ["D", "W", "M"].map((timeframe) => {
+      const analysis = analyses[timeframe];
+      const probability = analysis && !analysis.provisional && Number.isFinite(analysis.probability) ? `${analysis.probability}%` : "—";
+      return `${timeframe}:${probability}`;
+    });
+    return {
+      text: parts.join("|"),
+      tooltip: "Winning rate by timeframe: Daily|Weekly|Monthly"
+    };
   }
 
   function getTableViewMode() {
@@ -452,6 +467,10 @@ window.StockPrediction = (function () {
   async function update(stock, bars, chartInfo, tfKey, stocks, quoteMap) {
     const analysis = analyze(bars);
     lastAnalysis = analysis;
+    if (stock && stock.s && analysis) {
+      if (!timeframeAnalyses[stock.s]) timeframeAnalyses[stock.s] = {};
+      timeframeAnalyses[stock.s][tfKey] = analysis;
+    }
     if (analysis) {
       drawLevels(tfKey, chartInfo, analysis);
       if (tfKey === "D") cacheBars(stock.s, bars);
