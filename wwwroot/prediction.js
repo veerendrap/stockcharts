@@ -9,6 +9,7 @@ window.StockPrediction = (function () {
   const activeLines = {};
   const barsCache = {};
   let lastAnalysis = null;
+  let analysisViewMode = null;
 
   function analyze(bars) {
     if (!Array.isArray(bars) || bars.length < 60) return null;
@@ -305,18 +306,24 @@ window.StockPrediction = (function () {
   }
 
   function getTableViewMode() {
+    if (analysisViewMode === "table" || analysisViewMode === "cards") return analysisViewMode;
     try {
       const saved = localStorage.getItem("nseCharts.analysisViewMode");
-      if (saved === "table" || saved === "cards") return saved;
+      if (saved === "table" || saved === "cards") {
+        analysisViewMode = saved;
+        return analysisViewMode;
+      }
     } catch (error) { /* use the responsive default */ }
-    return window.matchMedia && window.matchMedia("(max-width: 760px)").matches ? "cards" : "table";
+    analysisViewMode = window.matchMedia && window.matchMedia("(max-width: 760px)").matches ? "cards" : "table";
+    return analysisViewMode;
   }
 
   function setTableViewMode(wrapper, mode) {
-    try { localStorage.setItem("nseCharts.analysisViewMode", mode); } catch (error) { /* preference is optional */ }
-    wrapper.classList.toggle("card-mode", mode === "cards");
+    analysisViewMode = mode === "cards" ? "cards" : "table";
+    try { localStorage.setItem("nseCharts.analysisViewMode", analysisViewMode); } catch (error) { /* preference is optional */ }
+    wrapper.classList.toggle("card-mode", analysisViewMode === "cards");
     wrapper.querySelectorAll(".view-mode-btn").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button.dataset.viewMode === mode));
+      button.setAttribute("aria-pressed", String(button.dataset.viewMode === analysisViewMode));
     });
   }
 

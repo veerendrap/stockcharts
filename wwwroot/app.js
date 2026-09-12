@@ -374,6 +374,7 @@
     if (idx < 0 || idx >= filtered.length) return;
     activeIndex = idx;
     const stock = filtered[idx];
+    setAnalysisView(false);
     highlightActiveRow();
     loadSymbol(stock);
     updateNavButtons();
@@ -383,6 +384,7 @@
     activeIndex = -1;
     $(".stock-row, .pinned-row").removeClass("active");
     $("#pinnedNifty").addClass("active");
+    setAnalysisView(false);
     loadSymbol(NIFTY_STOCK);
     updateNavButtons();
   }

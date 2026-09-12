@@ -140,12 +140,13 @@
               <button class="column-info-btn" id="columnInfoBtn" aria-label="Show table column details" title="Table column details">?</button>
               <div class="column-info-popover" id="columnInfoPopover" role="tooltip">
                 <strong>Column details</strong>
-                <span><b>Signal</b> model action: BUY / HOLD, WATCH, or AVOID.</span>
-                <span><b>Target %</b> expected upside from entry.</span>
-                <span><b>Loss %</b> planned downside to stop loss.</span>
-                <span><b>Winning rate</b> historical target-hit estimate from 0–100%.</span>
-                <span><b>Trend score</b> technical alignment score from 0–5.</span>
-                <span><b>SMA alignment</b> icons are 5, 20, 50, and 200 SMA in order: ▲ positive, ▼ negative, • unavailable.</span>
+                <span><b>Signal</b> BUY / HOLD is strongest, WATCH is mixed, and AVOID is weakest.</span>
+                <span><b>Winning rate</b> estimated chance of reaching the target in recent samples. Higher is better; it is not a guarantee.</span>
+                <span><b>Target %</b> expected upside from entry. Higher can be better, but larger targets usually require more movement.</span>
+                <span><b>Loss %</b> planned downside to the stop. A smaller absolute loss is generally better for risk control.</span>
+                <span><b>Trend score</b> technical alignment from 0–5. Higher is stronger: 4–5 is favorable, 2–3 is mixed, 0–1 is weak.</span>
+                <span><b>Momentum</b> recent price direction. Positive is upward, negative is downward, and values near 0 are flat.</span>
+                <span><b>SMA alignment</b> compares price with the 5, 20, 50, and 200 SMA. ▲ price above the average is positive, ▼ below is negative, and • means unavailable.</span>
               </div>
             </div>
           </div>
