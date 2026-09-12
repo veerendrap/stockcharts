@@ -86,9 +86,24 @@
     // Stock list is embedded via stocks.js (window.STOCKS_DATA) rather than
     // fetched with AJAX, so this works straight off disk (file://) with no
     // local server required.
-    const data = window.STOCKS_DATA || [];
     $("#sortSelect").val(SETTINGS.sortMode || "change");
     $("#filterSelect").val(SETTINGS.filterMode || "all");
+    const fallbackData = window.STOCKS_DATA || [];
+    loadStockList(fallbackData);
+  });
+
+  async function loadStockList(fallbackData) {
+    let data = fallbackData;
+    try {
+      const response = await fetch("/api/nifty500-symbols", { cache: "no-store" });
+      if (response.ok) {
+        const current = await response.json();
+        if (Array.isArray(current) && current.length) data = current;
+      }
+    } catch (e) {
+      // The embedded list keeps the standalone file:// version usable.
+    }
+
     if (!data.length) {
       $("#stockList").html(
         `<div class="empty-hint">Stock list not found.<br>Make sure stocks.js is loaded before app.js in index.html.</div>`
@@ -107,7 +122,7 @@
     } else if (SETTINGS.autoLoadNifty) {
       selectNifty();
     }
-  });
+  }
 
   /* ---------------------------------------------------------
      3. Sidebar list

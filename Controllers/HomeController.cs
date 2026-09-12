@@ -85,6 +85,79 @@ public class HomeController : Controller
         }
     }
 
+    [HttpGet("api/nifty500-symbols")]
+    public async Task<IActionResult> GetNifty500Symbols()
+    {
+        try
+        {
+            const string csvUrl = "https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv";
+            using var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+
+            var csv = await client.GetStringAsync(csvUrl);
+            var lines = csv.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length < 2)
+            {
+                return StatusCode(502, new { error = "NSE returned an empty symbol list" });
+            }
+
+            var symbols = lines.Skip(1)
+                .Select(ParseCsvLine)
+                .Where(fields => fields.Count >= 3 && !string.IsNullOrWhiteSpace(fields[2]))
+                .Select(fields => new
+                {
+                    s = fields[2].Trim(),
+                    n = fields[0].Trim(),
+                    i = fields[1].Trim()
+                })
+                .ToList();
+
+            return Ok(symbols);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to fetch the current NIFTY 500 symbol list from NSE");
+            return StatusCode(502, new { error = "Unable to fetch the current NSE symbol list" });
+        }
+    }
+
+    private static List<string> ParseCsvLine(string line)
+    {
+        var fields = new List<string>();
+        var field = new System.Text.StringBuilder();
+        var quoted = false;
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var character = line[i];
+            if (character == '"')
+            {
+                if (quoted && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    field.Append('"');
+                    i++;
+                }
+                else
+                {
+                    quoted = !quoted;
+                }
+            }
+            else if (character == ',' && !quoted)
+            {
+                fields.Add(field.ToString());
+                field.Clear();
+            }
+            else
+            {
+                field.Append(character);
+            }
+        }
+
+        fields.Add(field.ToString());
+        return fields;
+    }
+
     /// <summary>
     /// Proxy endpoint to fetch chart data from Yahoo Finance API.
     /// This bypasses CORS issues by making the request server-side.
