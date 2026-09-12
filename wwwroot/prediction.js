@@ -13,9 +13,11 @@ window.StockPrediction = (function () {
   function analyze(bars) {
     if (!Array.isArray(bars) || bars.length < 60) return null;
     const closes = bars.map((bar) => bar.close);
+    const current = bars[bars.length - 1].close;
+    const sma5 = movingAverage(closes, 5);
     const sma20 = average(closes.slice(-20));
     const sma50 = average(closes.slice(-50));
-    const current = bars[bars.length - 1].close;
+    const sma200 = movingAverage(closes, 200);
     const atr = average(bars.slice(-14).map((bar) => bar.high - bar.low));
     const rsi = calculateRsi(closes, 14);
     const momentum = closes.length > 20 ? ((current / closes[closes.length - 21]) - 1) * 100 : 0;
@@ -30,7 +32,7 @@ window.StockPrediction = (function () {
     const direction = trendScore >= 2 ? "up" : trendScore <= 0 ? "down" : "flat";
 
     return {
-      current, entry, stop, target, atr, sma20, sma50, rsi, momentum,
+      current, entry, stop, target, atr, sma5, sma20, sma50, sma200, rsi, momentum,
       trendScore, signal, direction, probability, rewardRisk,
       horizon: "next 10 trading days",
       asOf: bars[bars.length - 1].time
@@ -81,12 +83,28 @@ window.StockPrediction = (function () {
     return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   }
 
+  function movingAverage(values, period) {
+    return values.length >= period ? average(values.slice(-period)) : null;
+  }
+
   function money(value) {
     return Number.isFinite(value) ? value.toFixed(value < 100 ? 2 : 0) : "—";
   }
 
   function percent(value) {
     return Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%` : "—";
+  }
+
+  function targetPercent(analysis) {
+    return Number.isFinite(analysis.entry) && analysis.entry > 0
+      ? ((analysis.target - analysis.entry) / analysis.entry) * 100
+      : null;
+  }
+
+  function stopPercent(analysis) {
+    return Number.isFinite(analysis.entry) && analysis.entry > 0
+      ? ((analysis.stop - analysis.entry) / analysis.entry) * 100
+      : null;
   }
 
   function clearLines(tfKey, chartInfo) {
@@ -155,14 +173,163 @@ window.StockPrediction = (function () {
       $("#predictionPanel").html('<div class="analysis-empty">No stocks match the current filter.</div>');
       return;
     }
-    const rows = list.map((stock) => {
-      const analysis = barsCache[stock.s] ? analyze(barsCache[stock.s]) : provisionalAnalysis(quoteFor(stock, quoteMap));
-      if (!analysis) return `<tr><td>${stock.s}</td><td colspan="7">Waiting for daily data</td></tr>`;
-      const cls = `signal-${analysis.direction}`;
-      return `<tr class="${stock.s === selected.s ? "selected-prediction" : ""}"><td><b>${stock.s}</b><small>${stock.n || ""}</small></td><td class="${cls}">${analysis.signal}</td><td>${money(analysis.current)}</td><td class="value-up">${money(analysis.target)}<small>${analysis.provisional ? "quote estimate" : ""}</small></td><td class="value-down">${money(analysis.stop)}</td><td><b>${analysis.probability}%</b>${analysis.provisional ? "*" : ""}</td><td>${analysis.trendScore}/5</td><td>${analysis.momentum == null ? "—" : percent(analysis.momentum)}</td></tr>`;
-    }).join("");
     const detail = selectedAnalysis && selectedQuote ? `<div class="analysis-fundamentals"><span>Selected fundamentals</span><b>Market cap ${formatFundamental(selectedQuote.marketCap)}</b><b>P/E ${formatFundamental(selectedQuote.trailingPE)}</b><b>EPS ${formatFundamental(selectedQuote.epsTrailingTwelveMonths)}</b><b>Yield ${selectedQuote.dividendYield == null ? "—" : `${(selectedQuote.dividendYield * 100).toFixed(2)}%`}</b></div>` : "";
-    $("#predictionPanel").html(`<div class="analysis-kicker">LONG-ONLY TREND SETUPS · FILTERED UNIVERSE</div>${detail}<div class="analysis-table-wrap"><table class="prediction-grid"><thead><tr><th>Stock</th><th>Signal</th><th>Entry</th><th>Target</th><th>Stop loss</th><th>Probability</th><th>Score</th><th>Momentum</th></tr></thead><tbody>${rows}</tbody></table></div><p class="analysis-note">Probability is a historical estimate from available daily candles. Rows marked * are provisional until that stock's daily history has been synced. This stock-only model does not evaluate options or futures.</p>`);
+    const panel = document.getElementById("predictionPanel");
+    panel.innerHTML = `<div class="analysis-kicker">LONG-ONLY TREND SETUPS · FILTERED UNIVERSE</div>${detail}`;
+    panel.appendChild(buildPredictionTable(list, quoteMap, selected));
+    const note = document.createElement("p");
+    note.className = "analysis-note";
+    note.textContent = "Winning rate is the historical target-hit estimate for the model's recent samples, expressed from 0–100%. Trend score is a separate 0–5 technical alignment score, not a winning rate. Rows marked * are provisional until that stock's daily history has been synced. This stock-only model does not evaluate options or futures.";
+    panel.appendChild(note);
+    initializeDataTable();
+  }
+
+  function buildPredictionTable(stocks, quoteMap, selected) {
+    const headers = ["Stock", "Signal", "Entry", "Target", "Target %", "Stop loss", "Loss %", "Winning rate", "Trend score", "Momentum", "SMA alignment"];
+    const wrapper = document.createElement("div");
+    wrapper.className = "analysis-table-wrap";
+    const toolbar = document.createElement("div");
+    toolbar.className = "prediction-table-toolbar";
+    const filterLabel = document.createElement("label");
+    filterLabel.htmlFor = "signalFilter";
+    filterLabel.textContent = "Signal";
+    const signalFilter = document.createElement("select");
+    signalFilter.id = "signalFilter";
+    signalFilter.className = "signal-filter";
+    ["All signals", "BUY / HOLD", "WATCH", "AVOID"].forEach((signal) => {
+      const option = document.createElement("option");
+      option.value = signal === "All signals" ? "" : signal;
+      option.textContent = signal;
+      signalFilter.appendChild(option);
+    });
+    toolbar.append(filterLabel, signalFilter);
+    wrapper.appendChild(toolbar);
+    const table = document.createElement("table");
+    table.id = "predictionTable";
+    table.className = "prediction-grid";
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    headers.forEach((header) => {
+      const cell = document.createElement("th");
+      cell.textContent = header;
+      headerRow.appendChild(cell);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    stocks.forEach((stock) => {
+      const analysis = barsCache[stock.s] ? analyze(barsCache[stock.s]) : provisionalAnalysis(quoteFor(stock, quoteMap));
+      const row = document.createElement("tr");
+      if (stock.s === selected.s) row.className = "selected-prediction";
+      if (!analysis) {
+        appendCell(row, stock.s, true);
+        appendCell(row, "Waiting for daily data");
+        for (let index = 2; index < headers.length; index++) appendCell(row, "—");
+        tbody.appendChild(row);
+        return;
+      }
+
+      const targetDelta = targetPercent(analysis);
+      const stopDelta = stopPercent(analysis);
+      appendStockCell(row, stock);
+      appendCell(row, analysis.signal, false, `signal-${analysis.direction}`);
+      appendCell(row, money(analysis.current));
+      appendCell(row, money(analysis.target), false, "value-up", analysis.provisional ? "quote estimate" : "");
+      appendCell(row, percent(targetDelta), false, "value-up", "", targetDelta);
+      appendCell(row, money(analysis.stop), false, "value-down");
+      appendCell(row, percent(stopDelta), false, "value-down", "", stopDelta);
+      appendCell(row, `${analysis.probability}%${analysis.provisional ? "*" : ""}`, false, "", "", analysis.probability);
+      appendCell(row, `${analysis.trendScore}/5`, false, "", "", analysis.trendScore);
+      appendCell(row, analysis.momentum == null ? "—" : percent(analysis.momentum));
+      appendSmaCell(row, analysis);
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+    return wrapper;
+  }
+
+  function appendSmaCell(row, analysis) {
+    const cell = document.createElement("td");
+    cell.className = "sma-alignment";
+    const entries = [
+      ["5SMA", analysis.sma5],
+      ["20SMA", analysis.sma20],
+      ["50SMA", analysis.sma50],
+      ["200SMA", analysis.sma200]
+    ];
+    entries.forEach((entry, index) => {
+      if (index > 0) {
+        const separator = document.createElement("span");
+        separator.className = "sma-separator";
+        separator.textContent = " - ";
+        separator.setAttribute("aria-hidden", "true");
+        cell.appendChild(separator);
+      }
+      const icon = document.createElement("span");
+      const positive = entry[1] != null && analysis.current >= entry[1];
+      icon.className = positive ? "sma-positive" : entry[1] == null ? "sma-neutral" : "sma-negative";
+      icon.textContent = entry[1] == null ? "•" : positive ? "▲" : "▼";
+      icon.title = `${entry[0]}: ${entry[1] == null ? "not enough history" : positive ? "positive, price above average" : "negative, price below average"}`;
+      icon.setAttribute("aria-label", icon.title);
+      cell.appendChild(icon);
+    });
+    row.appendChild(cell);
+  }
+
+  function appendStockCell(row, stock) {
+    const cell = document.createElement("td");
+    const symbol = document.createElement("b");
+    symbol.textContent = stock.s;
+    const name = document.createElement("small");
+    name.textContent = stock.n || "";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "row-chart-btn";
+    button.dataset.symbol = stock.s;
+    button.title = `Show ${stock.s} chart`;
+    button.setAttribute("aria-label", `Show ${stock.s} chart`);
+    button.textContent = "▥";
+    cell.append(symbol, button, name);
+    row.appendChild(cell);
+  }
+
+  function appendCell(row, value, bold, className, secondary, order) {
+    const cell = document.createElement("td");
+    if (className) cell.className = className;
+    if (order !== undefined && order !== null && order !== "") cell.dataset.order = order;
+    const valueNode = bold ? document.createElement("b") : document.createElement("span");
+    valueNode.textContent = value;
+    cell.appendChild(valueNode);
+    if (secondary) {
+      const detail = document.createElement("small");
+      detail.textContent = secondary;
+      cell.appendChild(detail);
+    }
+    row.appendChild(cell);
+  }
+
+  function initializeDataTable() {
+    const table = document.getElementById("predictionTable");
+    if (!table || !window.jQuery || !jQuery.fn.DataTable) return;
+    jQuery(table).DataTable({
+      pageLength: 25,
+      lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+      order: [[7, "desc"]],
+      autoWidth: false,
+      language: { search: "Filter stocks:", emptyTable: "No stock predictions available" },
+      initComplete: function () {
+        const tableApi = this.api();
+        const signalFilter = document.getElementById("signalFilter");
+        if (signalFilter) {
+          signalFilter.addEventListener("change", function () {
+            const value = this.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            tableApi.column(1).search(value ? `^${value}$` : "", true, false).draw();
+          });
+        }
+      }
+    });
   }
 
   function formatFundamental(value) {

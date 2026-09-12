@@ -33,6 +33,7 @@
   const NIFTY_STOCK = { s: "^NSEI", n: "Nifty 50 Index", i: "Index" };
 
   const SETTINGS_KEY = "nseCharts.settings";
+  const INVALID_SYMBOLS = new Set(["DUMMYHEG"]);
   const SYNC_STORE_KEY = "nseCharts.symbolSync";
   const DEFAULT_SETTINGS = {
     theme: "light",
@@ -112,7 +113,7 @@
       return;
     }
 
-    STOCKS = data;
+    STOCKS = data.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
     renderList(STOCKS, "");
     refreshFilteredList();
     syncPendingSymbols(data);
@@ -384,6 +385,7 @@
   }
 
   function loadCustomSymbol(q) {
+    if (INVALID_SYMBOLS.has(String(q || "").trim().toUpperCase())) return;
     activeIndex = -1;
     $(".stock-row, .pinned-row").removeClass("active");
     loadSymbol({ s: q, n: q, i: "Custom" });
@@ -1398,17 +1400,38 @@
     });
     $("#scrim").on("click", closeSidebarOnMobile);
     $("#analysisBtn").on("click", function () {
-      $("#chartGrid").hide();
-      $("#analysisView").addClass("show");
-      $(this).addClass("active");
-      if (currentStock && candleCache.D && window.StockPrediction) {
+      const showingAnalysis = $("#analysisView").hasClass("show");
+      $("#chartGrid").toggle(!showingAnalysis);
+      $("#analysisView").toggleClass("show", !showingAnalysis);
+      $(this).toggleClass("active", !showingAnalysis);
+      $(this).attr({
+        "aria-pressed": String(!showingAnalysis),
+        title: showingAnalysis ? "Show charts" : "Show analysis table",
+        "aria-label": showingAnalysis ? "Show charts" : "Show analysis table"
+      });
+      if (!showingAnalysis && currentStock && candleCache.D && window.StockPrediction) {
         StockPrediction.update(currentStock, candleCache.D, charts.D, "D", filtered, quoteCache);
       }
     });
-    $("#analysisClose").on("click", function () {
+    $("#columnInfoBtn").on("click", function (event) {
+      event.stopPropagation();
+      $("#columnInfoPopover").toggleClass("show");
+    });
+    $("#columnInfoPopover").on("click", function (event) {
+      event.stopPropagation();
+    });
+    $(document).on("click", function () {
+      $("#columnInfoPopover").removeClass("show");
+    });
+    $(document).on("click", ".row-chart-btn", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const symbol = String($(this).data("symbol") || "");
+      const index = filtered.findIndex((stock) => stock.s === symbol);
+      if (index >= 0) selectByFilteredIndex(index);
       $("#analysisView").removeClass("show");
       $("#chartGrid").show();
-      $("#analysisBtn").removeClass("active");
+      $("#analysisBtn").removeClass("active").attr({ "aria-pressed": "false", title: "Show analysis table", "aria-label": "Show analysis table" });
     });
   }
 
