@@ -278,9 +278,13 @@ window.StockPrediction = (function () {
       const analysis = barsCache[stock.s] ? analyze(barsCache[stock.s]) : provisionalAnalysis(quoteFor(stock, quoteMap));
       const row = document.createElement("tr");
       if (stock.s === selected.s) row.className = "selected-prediction";
+      const status = stock.syncStatus || "pending";
+      const failedStatus = status === "error" || status === "not-found";
+      if (failedStatus) row.classList.add("analysis-failed");
+      else if (!analysis || analysis.provisional) row.classList.add("analysis-pending");
       if (!analysis) {
         appendStockCell(row, stock);
-        appendCell(row, "Waiting for daily data");
+        appendCell(row, failedStatus ? "Daily data unavailable" : "Loading daily data");
         for (let index = 2; index < headers.length; index++) appendCell(row, "—");
         tbody.appendChild(row);
         return;

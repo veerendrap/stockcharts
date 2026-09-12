@@ -307,6 +307,7 @@
     }
 
     filtered = applySort(next);
+    filtered.forEach((stock) => { stock.syncStatus = getSyncStatus(stock.s); });
     renderList(filtered, q);
     updateListMeta();
 
