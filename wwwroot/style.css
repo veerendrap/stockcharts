@@ -1050,8 +1050,10 @@ kbd{
   .analysis-table{ grid-template-columns:1fr; }
   .analysis-row:nth-child(odd){ border-right:0; }
   .analysis-summary{ padding:14px; }
-  .analysis-summary-strip{ grid-template-columns:repeat(2,minmax(0,1fr)); padding:8px; }
-  .analysis-summary-card{ min-height:44px; }
+  .analysis-summary-strip{ grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:5px; }
+  .analysis-summary-card{ min-height:34px; gap:2px; padding:4px 6px; border-radius:4px; box-shadow:none; }
+  .analysis-summary-card span{ font-size:7px; }
+  .analysis-summary-card b{ font-size:14px; }
   .prediction-view-toggle{ margin-left:0; }
   .prediction-table-toolbar{ align-items:flex-start; }
   .prediction-levels{ flex:1 1 auto; position:static; width:auto; min-width:0; margin-left:0; gap:2px; overflow-x:auto; padding:1px 0; scrollbar-width:none; }
