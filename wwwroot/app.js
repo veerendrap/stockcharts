@@ -1401,16 +1401,13 @@
     $("#scrim").on("click", closeSidebarOnMobile);
     $("#analysisBtn").on("click", function () {
       const showingAnalysis = $("#analysisView").hasClass("show");
-      $("#chartGrid").toggle(!showingAnalysis);
-      $("#analysisView").toggleClass("show", !showingAnalysis);
-      $(this).toggleClass("active", !showingAnalysis);
-      $(this).attr({
-        "aria-pressed": String(!showingAnalysis),
-        title: showingAnalysis ? "Show charts" : "Show analysis table",
-        "aria-label": showingAnalysis ? "Show charts" : "Show analysis table"
-      });
-      if (!showingAnalysis && currentStock && candleCache.D && window.StockPrediction) {
-        StockPrediction.update(currentStock, candleCache.D, charts.D, "D", filtered, quoteCache);
+      setAnalysisView(!showingAnalysis);
+      if (!showingAnalysis && window.StockPrediction) {
+        if (currentStock && candleCache.D) {
+          StockPrediction.update(currentStock, candleCache.D, charts.D, "D", filtered, quoteCache);
+        } else {
+          StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
+        }
       }
     });
     $("#columnInfoBtn").on("click", function (event) {
@@ -1429,9 +1426,17 @@
       const symbol = String($(this).data("symbol") || "");
       const index = filtered.findIndex((stock) => stock.s === symbol);
       if (index >= 0) selectByFilteredIndex(index);
-      $("#analysisView").removeClass("show");
-      $("#chartGrid").show();
-      $("#analysisBtn").removeClass("active").attr({ "aria-pressed": "false", title: "Show analysis table", "aria-label": "Show analysis table" });
+      setAnalysisView(false);
+    });
+  }
+
+  function setAnalysisView(showAnalysis) {
+    $("#chartGrid").toggle(!showAnalysis);
+    $("#analysisView").toggleClass("show", showAnalysis);
+    $("#analysisBtn").toggleClass("active", showAnalysis).attr({
+      "aria-pressed": String(showAnalysis),
+      title: showAnalysis ? "Show charts" : "Show analysis table",
+      "aria-label": showAnalysis ? "Show charts" : "Show analysis table"
     });
   }
 
