@@ -1271,7 +1271,10 @@
   }
 
   function syncPendingSymbols(stocks) {
-    const pending = stocks.filter((stock) => !["synced", "not-found"].includes(getSyncStatus(stock.s)));
+    const pending = stocks.filter((stock) => {
+      if (getSyncStatus(stock.s) === "not-found") return false;
+      return !window.StockPrediction || !StockPrediction.hasBars(stock.s);
+    });
     return syncSymbols(pending);
   }
 

@@ -370,5 +370,9 @@ window.StockPrediction = (function () {
     renderCollection(stocks, quoteMap, selectedStock, null);
   }
 
-  return { update, analyze, cacheBars, renderUniverse, getLastAnalysis };
+  function hasBars(symbol) {
+    return !!(symbol && barsCache[symbol] && barsCache[symbol].length);
+  }
+
+  return { update, analyze, cacheBars, hasBars, renderUniverse, getLastAnalysis };
 })();
