@@ -333,6 +333,14 @@ kbd{
 .stock-row .move-pill.up{ background:rgba(27,143,124,.12); color:var(--up); }
 .stock-row .move-pill.down{ background:rgba(216,57,61,.12); color:var(--down); }
 .stock-row .move-pill.flat{ background:var(--panel-alt); color:var(--text-dim); }
+.stock-row .not-found-mark{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:44px;
+  color:var(--down);
+  font:800 11px var(--font-mono);
+}
 .stock-row .sync-dot{
   width:6px;
   height:6px;

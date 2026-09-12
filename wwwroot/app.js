@@ -130,7 +130,9 @@
   function rowHtml(s, i) {
     const meta = getQuoteMeta(s);
     const syncStatus = getSyncStatus(s.s);
-    const badge = meta && Number.isFinite(meta.changePct)
+    const badge = syncStatus === "not-found"
+      ? `<span class="not-found-mark" title="Symbol not found">X</span>`
+      : meta && Number.isFinite(meta.changePct)
       ? `<span class="move-pill ${meta.changePct > 0 ? "up" : meta.changePct < 0 ? "down" : "flat"}">${fmtPercent(meta.changePct)}</span>`
       : "";
     return (
@@ -240,7 +242,7 @@
   }
 
   function syncStatusLabel(status) {
-    return ({ synced: "Synced", syncing: "Syncing", error: "Sync failed", pending: "Pending sync" })[status] || "Pending sync";
+    return ({ synced: "Synced", syncing: "Syncing", error: "Sync failed", "not-found": "Symbol not found", pending: "Pending sync" })[status] || "Pending sync";
   }
 
   function updateSyncSummary() {
@@ -449,7 +451,11 @@
 
   $("#refreshBtn").on("click", function () {
     resetChartLayout();
-    if (currentStock) loadSymbol(currentStock);
+    if (currentStock) {
+      setSyncStatus(currentStock.s, "pending");
+      loadSymbol(currentStock);
+      syncSymbols([currentStock]);
+    }
   });
 
   $("#syncNowBtn").on("click", function () { syncSymbols(STOCKS); });
@@ -1235,7 +1241,7 @@
   }
 
   function syncPendingSymbols(stocks) {
-    const pending = stocks.filter((stock) => getSyncStatus(stock.s) !== "synced");
+    const pending = stocks.filter((stock) => !["synced", "not-found"].includes(getSyncStatus(stock.s)));
     return syncSymbols(pending);
   }
 
@@ -1261,14 +1267,22 @@
           const range = source.mapRange("D", SETTINGS.barCount);
           const candidates = buildSymbolCandidates(stock, source);
           let payload = null;
+          let notFound = false;
 
           for (const symbol of candidates) {
             const proxyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
             try {
               const { promise } = fetchWithControllerProxy(proxyUrl);
               const json = await promise;
+              if (extractYahooError(json)) {
+                notFound = true;
+                continue;
+              }
               const candles = source.parseCandles(json);
-              if (!candles.length) continue;
+              if (!candles.length) {
+                notFound = true;
+                continue;
+              }
               const barCount = Number(SETTINGS.barCount);
               const bars = barCount > 0 ? candles.slice(-barCount) : candles;
               const last = bars[bars.length - 1];
@@ -1294,7 +1308,7 @@
           }
 
           if (!payload) {
-            setSyncStatus(stock.s, "error", "No data returned");
+            setSyncStatus(stock.s, notFound ? "not-found" : "error", notFound ? "Symbol not found" : "No data returned");
             continue;
           }
 
