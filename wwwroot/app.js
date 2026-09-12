@@ -468,8 +468,7 @@
     resetChartLayout();
     if (currentStock) {
       setSyncStatus(currentStock.s, "pending");
-      loadSymbol(currentStock);
-      syncSymbols([currentStock]);
+      syncSymbols([currentStock]).then(() => loadSymbol(currentStock));
     }
   });
 
@@ -977,6 +976,13 @@
     $("#priceBlock").html("");
     Object.keys(candleCache).forEach((k) => delete candleCache[k]);
     Object.keys(candleCacheRange).forEach((k) => delete candleCacheRange[k]);
+
+    if (getSyncStatus(stock.s) === "not-found") {
+      TIMEFRAMES.forEach((tf) => {
+        if (SETTINGS.visible[tf.key]) setPanelState(tf.key, "empty", "Symbol not found");
+      });
+      return;
+    }
 
     // Hidden panels (unchecked in Settings) are skipped entirely — no fetch
     // is sent for a chart the user can't currently see. If it's shown again

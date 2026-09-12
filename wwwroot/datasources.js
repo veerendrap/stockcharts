@@ -53,7 +53,7 @@ window.DataSources = (function () {
       const raw = String(stock && stock.s ? stock.s : stock || "").trim();
       if (!raw) return [];
       if (raw.startsWith("^") || raw.includes(".") || raw.includes(":")) return [raw];
-      return Array.from(new Set([raw, `${raw}.NS`, `${raw}.BO`]))
+      return Array.from(new Set([`${raw}.NS`, raw]))
         .filter(Boolean);
     },
 
