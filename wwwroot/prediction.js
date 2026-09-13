@@ -152,7 +152,7 @@ window.StockPrediction = (function () {
         }).join("");
         const winRate = Number.isFinite(analysis.probability) ? `${analysis.probability}%${analysis.provisional ? "*" : ""}` : "—";
         const winRateDescription = `Winning rate: ${winRate.replace("*", "")}. Historical target-hit estimate from recent samples.`;
-        labels.innerHTML = `${levels}<div class="prediction-winrate" title="${winRateDescription}" aria-label="${winRateDescription}"><b aria-hidden="true">◎</b><span>${winRate}</span><small>WIN</small></div>`;
+        labels.innerHTML = `<div class="prediction-winrate" title="${winRateDescription}" aria-label="${winRateDescription}"><b aria-hidden="true">◎</b><span>${winRate}</span><small>WIN</small></div>${levels}`;
       }
     }
   }

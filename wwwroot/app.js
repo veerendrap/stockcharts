@@ -44,6 +44,7 @@
     rsiEnabled: false,
     macdEnabled: false,
     patternsEnabled: true,
+    chartColumns: 0, // "0" = responsive (web 2 / mobile 1) | "1".."4" = forced columns
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     sortMode: "change", // "change" | "momentum" | "symbol" | "sector"
@@ -94,6 +95,7 @@
     $("#sortSelect").val(SETTINGS.sortMode || "change");
     $("#filterSelect").val(SETTINGS.filterMode || "all");
     $("#signalSelect").val(SETTINGS.signalMode || "all");
+    $("#chartColumnsSelect").val(String(SETTINGS.chartColumns || 0));
     const fallbackData = window.STOCKS_DATA || [];
     loadStockList(fallbackData);
   });
@@ -527,6 +529,12 @@
     }
   });
 
+  $("#chartColumnsSelect").on("change", function () {
+    SETTINGS.chartColumns = parseInt($(this).val(), 10) || 0;
+    saveSettings();
+    updateGridLayout();
+  });
+
   $("#syncNowBtn").on("click", function () { syncSymbols(STOCKS); });
   $("#syncPendingBtn").on("click", function () { syncPendingSymbols(STOCKS); });
   $("#stopSyncBtn").on("click", function () {
@@ -799,12 +807,22 @@
 
   function updateGridLayout() {
     const visibleCount = TIMEFRAMES.filter((tf) => SETTINGS.visible[tf.key]).length || 1;
-    const cols = visibleCount <= 1 ? 1 : 2;
+    const chosen = SETTINGS.chartColumns || 0;
+    const cols = chosen > 0 ? Math.min(chosen, visibleCount) : visibleCount <= 1 ? 1 : 2;
     const rows = Math.ceil(visibleCount / cols);
-    $("#chartGrid").css({
-      "grid-template-columns": `repeat(${cols}, 1fr)`,
-      "grid-template-rows": `repeat(${rows}, 1fr)`
-    });
+    const gridStyle = $("#chartGrid")[0].style;
+    if (chosen > 0) {
+      // Forced layout must beat the responsive single-column media query.
+      gridStyle.setProperty("grid-template-columns", `repeat(${cols}, 1fr)`, "important");
+      gridStyle.setProperty("grid-template-rows", `repeat(${rows}, 1fr)`, "important");
+    } else {
+      gridStyle.removeProperty("grid-template-columns");
+      gridStyle.removeProperty("grid-template-rows");
+      $("#chartGrid").css({
+        "grid-template-columns": `repeat(${cols}, 1fr)`,
+        "grid-template-rows": `repeat(${rows}, 1fr)`
+      });
+    }
   }
 
   /* ---------------------------------------------------------
