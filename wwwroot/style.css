@@ -202,7 +202,6 @@ input[type="checkbox"]{ accent-color:var(--amber); }
 
 .list-meta{
   padding:4px 9px;
-  display:flex;
   align-items:center;
   justify-content:space-between;
   gap:8px;
@@ -582,7 +581,6 @@ kbd{
 .view-mode-btn{ border:0; border-radius:3px; padding:4px 8px; background:transparent; color:var(--text-dim); font:700 9px var(--font-mono); cursor:pointer; }
 .view-mode-btn[aria-pressed="true"]{ background:var(--panel); color:var(--amber); box-shadow:0 1px 3px rgba(20,24,30,.12); }
 .view-mode-btn:focus-visible{ outline:2px solid var(--amber); outline-offset:1px; }
-.signal-filter{ width:140px; max-width:100%; min-width:0; padding:5px 7px; border:1px solid var(--border); border-radius:4px; background:var(--panel); color:var(--text); font:10px var(--font-mono); text-overflow:ellipsis; }
 .prediction-grid{ width:100%; min-width:780px; border-collapse:separate; border-spacing:0; font-size:11px; }
 .dataTables_wrapper{ padding:10px 12px 4px; color:var(--text); font:10px var(--font-mono); }
 .dataTables_wrapper .dataTables_filter label,.dataTables_wrapper .dataTables_length label{ color:var(--text); font-weight:700; }

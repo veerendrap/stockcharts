@@ -265,19 +265,6 @@ window.StockPrediction = (function () {
     wrapper.className = "analysis-table-wrap";
     const toolbar = document.createElement("div");
     toolbar.className = "prediction-table-toolbar";
-    const filterLabel = document.createElement("label");
-    filterLabel.htmlFor = "signalFilter";
-    filterLabel.textContent = "Signal";
-    const signalFilter = document.createElement("select");
-    signalFilter.id = "signalFilter";
-    signalFilter.className = "signal-filter";
-    ["All signals", "BUY / HOLD", "WATCH", "AVOID"].forEach((signal) => {
-      const option = document.createElement("option");
-      option.value = signal === "All signals" ? "" : signal;
-      option.textContent = signal;
-      signalFilter.appendChild(option);
-    });
-    toolbar.append(filterLabel, signalFilter);
     const viewToggle = document.createElement("div");
     viewToggle.className = "prediction-view-toggle";
     viewToggle.setAttribute("aria-label", "Analysis layout");
@@ -463,13 +450,11 @@ window.StockPrediction = (function () {
     if (!table || !window.jQuery || !jQuery.fn.dataTable || !jQuery.fn.dataTable.isDataTable(table)) return null;
     const api = jQuery(table).DataTable();
     const info = api.page.info();
-    const signalFilter = document.getElementById("signalFilter");
     const state = {
       page: info.page,
       length: info.length,
       search: api.search(),
-      order: api.order(),
-      signal: signalFilter ? signalFilter.value : ""
+      order: api.order()
     };
     api.destroy(true);
     return state;
@@ -486,20 +471,8 @@ window.StockPrediction = (function () {
       lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
       order: state.order || [[2, "desc"]],
       search: { search: state.search || "" },
-      searchCols: [null, { search: state.signal ? `^${state.signal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$` : "" }],
       autoWidth: false,
-      language: { search: "Filter stocks:", emptyTable: "No stock predictions available" },
-      initComplete: function () {
-        const tableApi = this.api();
-        const signalFilter = document.getElementById("signalFilter");
-        if (signalFilter) {
-          signalFilter.value = state.signal || "";
-          signalFilter.addEventListener("change", function () {
-            const value = this.value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            tableApi.column(1).search(value ? `^${value}$` : "", true, false).draw();
-          });
-        }
-      }
+      language: { search: "Filter stocks:", emptyTable: "No stock predictions available" }
     });
   }
 
