@@ -127,15 +127,15 @@ window.StockPrediction = (function () {
     clearLines(tfKey, chartInfo);
     if (!analysis) return;
     const lines = [
-      { price: analysis.entry, color: "#2563eb", title: "" },
-      { price: analysis.target, color: "#1b8f7c", title: "" },
-      { price: analysis.stop, color: "#d8393d", title: "" }
+      { price: analysis.entry, color: "#2563eb", title: "ENTRY" },
+      { price: analysis.target, color: "#1b8f7c", title: "TARGET" },
+      { price: analysis.stop, color: "#d8393d", title: "STOP" }
     ];
     chartInfo.levelPrices = lines.map((line) => line.price).filter(Number.isFinite);
     activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
       price: line.price, color: line.color, lineWidth: 2,
       lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true, title: line.title
+      axisLabelVisible: false, title: line.title
     }));
     if (chartInfo.levelsHost) {
       const labels = chartInfo.levelsHost;
@@ -159,6 +159,38 @@ window.StockPrediction = (function () {
 
   function quoteFor(stock, quoteMap) {
     return quoteMap[stock.s] || quoteMap[stock.s.toUpperCase()] || quoteMap[stock.s.toLowerCase()] || {};
+  }
+
+  function quoteForSymbol(symbol, quoteMap) {
+    const map = quoteMap || {};
+    return map[symbol] || map[symbol.toUpperCase()] || map[symbol.toLowerCase()] || {};
+  }
+
+  // Sidebar signal filter support: resolve the overall signal for a raw
+  // ticker string from cached daily bars when available, falling back to a
+  // provisional signal based on the quote so unsynced symbols can still be
+  // classified as soon as their quote arrives.
+  function getSignal(symbol, quoteMap) {
+    const bars = barsCache[symbol];
+    if (bars && bars.length) {
+      const analysis = analyze(bars);
+      if (analysis) return analysis.signal;
+    }
+    const provisional = provisionalAnalysis(quoteForSymbol(symbol, quoteMap));
+    return provisional ? provisional.signal : null;
+  }
+
+  // Sidebar momentum sort support: resolve the 10-day momentum (percent) for a
+  // raw ticker from cached daily bars when available, falling back to the
+  // quote's intraday change as a provisional estimate.
+  function getMomentum(symbol, quoteMap) {
+    const bars = barsCache[symbol];
+    if (bars && bars.length) {
+      const analysis = analyze(bars);
+      if (analysis) return analysis.momentum;
+    }
+    const provisional = provisionalAnalysis(quoteForSymbol(symbol, quoteMap));
+    return provisional ? provisional.momentum : null;
   }
 
   function provisionalAnalysis(quote) {
@@ -228,7 +260,7 @@ window.StockPrediction = (function () {
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
-    const headers = ["◫ Stock", "◆ Signal", "◎ Win rates", "• Entry", "▲ Target", "↗ Target %", "▼ Stop loss", "↘ Loss %", "✦ Trend score", "∿ Momentum", "⌁ SMA alignment"];
+    const headers = ["◫ Stock", "◆ Signal", "◎ Win rates", "• Entry", "▲ Target", "↗ Target %", "▼ Stop loss", "↘ Loss %", "⇄ R : R", "✦ Trend score", "∿ Momentum", "⌁ SMA alignment"];
     const wrapper = document.createElement("div");
     wrapper.className = "analysis-table-wrap";
     const toolbar = document.createElement("div");
@@ -303,14 +335,21 @@ window.StockPrediction = (function () {
       appendCell(row, percent(targetDelta), false, "value-up", "", targetDelta);
       appendCell(row, money(analysis.stop), false, "value-down");
       appendCell(row, percent(stopDelta), false, "value-down", "", stopDelta);
+      appendCell(row, formatRiskReward(analysis), false, "", "", analysis.rewardRisk);
       appendCell(row, `${analysis.trendScore}/5`, false, "", "", analysis.trendScore);
-      appendCell(row, analysis.momentum == null ? "—" : percent(analysis.momentum));
+      appendCell(row, analysis.momentum == null ? "—" : percent(analysis.momentum), false, "", "", analysis.momentum);
       appendSmaCell(row, analysis);
       tbody.appendChild(row);
     });
     table.appendChild(tbody);
     wrapper.appendChild(table);
     return wrapper;
+  }
+
+  function formatRiskReward(analysis) {
+    return Number.isFinite(analysis.rewardRisk) && analysis.rewardRisk > 0
+      ? `1 : ${analysis.rewardRisk.toFixed(2)}`
+      : "—";
   }
 
   function formatWinRates(symbol, dailyAnalysis) {
@@ -515,5 +554,5 @@ window.StockPrediction = (function () {
     return !!(symbol && barsCache[symbol] && barsCache[symbol].length);
   }
 
-  return { update, analyze, cacheBars, hasBars, renderUniverse, getLastAnalysis };
+  return { update, analyze, cacheBars, hasBars, renderUniverse, getLastAnalysis, getSignal, getMomentum };
 })();

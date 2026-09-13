@@ -60,6 +60,7 @@
     <div class="list-meta">
       <select id="sortSelect" class="sort-select" title="Sort symbols by">
         <option value="change">Sort: Change %</option>
+        <option value="momentum">Sort: Momentum</option>
         <option value="symbol">Sort: Symbol</option>
         <option value="sector">Sort: Sector</option>
       </select>
@@ -69,6 +70,12 @@
         <option value="negative">Filter: -Change %</option>
         <option value="nearHigh">Filter: Near 52W High</option>
         <option value="above5sma">Filter: Above 5 SMA (Daily)</option>
+      </select>
+      <select id="signalSelect" class="sort-select" title="Filter symbols by signal">
+        <option value="all">Signal: All</option>
+        <option value="signalBuy">Signal: BUY / HOLD</option>
+        <option value="signalWatch">Signal: WATCH</option>
+        <option value="signalAvoid">Signal: AVOID</option>
       </select>
       <span id="listMeta">Loading…</span>
     </div>
@@ -145,6 +152,7 @@
                 <span><b>Winning rate</b> How often similar past setups reached their target before the stop. A higher percentage is generally better, but it is an estimate, not a guarantee.</span>
                 <span><b>Target %</b> The possible gain from the entry price if the target is reached. Higher may look attractive, but ambitious targets are harder to reach.</span>
                 <span><b>Loss %</b> The planned drop from entry to the stop-loss level. A smaller absolute percentage usually means more controlled risk.</span>
+                <span><b>Risk : Reward</b> How much gain is targeted for every 1 unit of risk taken from entry to stop. The model currently targets 2 units of reward per 1 unit of risk.</span>
                 <span><b>Trend score</b> How many technical conditions agree with an upward trend. <em>4–5</em> is strong, <em>2–3</em> is mixed, and <em>0–1</em> is weak.</span>
                 <span><b>Momentum</b> The recent direction of price movement. Positive values show upward movement, negative values show downward movement, and values near zero show little movement.</span>
                 <span><b>SMA alignment</b> Compares today’s price with its 5, 20, 50, and 200-day averages. ▲ means price is above an average, ▼ means below it, and • means there is not enough data. More ▲ symbols usually indicate stronger alignment.</span>
@@ -254,6 +262,16 @@
             <span class="thumb"></span>
           </label>
         </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Candlestick patterns</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="patternsToggle" checked>
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -324,6 +342,9 @@
 
 <!-- Long-only stock prediction and fundamental analysis -->
 <script src="~/prediction.js" asp-append-version="true"></script>
+
+<!-- Candlestick pattern detection + chart labels -->
+<script src="~/patterns.js" asp-append-version="true"></script>
 
 <!-- App logic -->
 <script src="~/app.js" asp-append-version="true"></script>

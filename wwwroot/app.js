@@ -43,10 +43,12 @@
     smaEnabled: true,
     rsiEnabled: false,
     macdEnabled: false,
+    patternsEnabled: true,
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
-    sortMode: "change", // "change" | "symbol" | "sector"
+    sortMode: "change", // "change" | "momentum" | "symbol" | "sector"
     filterMode: "all", // "all" | "positive" | "negative" | "nearHigh" | "above5sma"
+    signalMode: "all", // "all" | "signalBuy" | "signalWatch" | "signalAvoid"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
     visible: { M: true, W: true, D: true, H: false },
@@ -91,6 +93,7 @@
     // local server required.
     $("#sortSelect").val(SETTINGS.sortMode || "change");
     $("#filterSelect").val(SETTINGS.filterMode || "all");
+    $("#signalSelect").val(SETTINGS.signalMode || "all");
     const fallbackData = window.STOCKS_DATA || [];
     loadStockList(fallbackData);
   });
@@ -174,6 +177,15 @@
     const arr = list.slice();
     if (mode === "sector") {
       arr.sort((a, b) => a.i.localeCompare(b.i) || a.s.localeCompare(b.s));
+    } else if (mode === "momentum") {
+      arr.sort((a, b) => {
+        const aM = stockMomentum(a);
+        const bM = stockMomentum(b);
+        if (aM !== null && bM !== null && aM !== bM) return bM - aM;
+        if (aM === null && bM !== null) return 1;
+        if (aM !== null && bM === null) return -1;
+        return a.s.localeCompare(b.s);
+      });
     } else if (mode === "change") {
       arr.sort((a, b) => {
         const aMeta = getQuoteMeta(a);
@@ -187,6 +199,14 @@
       arr.sort((a, b) => a.s.localeCompare(b.s)); // symbol (ticker), alphabetical
     }
     return arr;
+  }
+
+  // Strikes a balance between responsiveness and freshness: momentum comes
+  // from the cached daily analysis, with the quote's daily change as a
+  // fallback so rows stay reasonably ordered even before sync finishes.
+  function stockMomentum(stock) {
+    if (!window.StockPrediction || typeof StockPrediction.getMomentum !== "function") return null;
+    return StockPrediction.getMomentum(stock.s, quoteCache);
   }
 
   // Re-sorts whatever's currently filtered (keeps the active search intact),
@@ -210,11 +230,16 @@
     return $("#filterSelect").val() || SETTINGS.filterMode || "all";
   }
 
+  function getSignalMode() {
+    return $("#signalSelect").val() || SETTINGS.signalMode || "all";
+  }
+
   function updateListMeta() {
     const total = STOCKS.length;
     const query = $("#searchInput").val().trim();
     const mode = getFilterMode();
-    const hasCriteria = query.length > 0 || mode !== "all";
+    const signal = getSignalMode();
+    const hasCriteria = query.length > 0 || mode !== "all" || signal !== "all";
     $("#listMeta").text(hasCriteria ? `${filtered.length} of ${total}` : `${total} symbols`);
     updateSyncSummary();
   }
@@ -293,9 +318,24 @@
     return true;
   }
 
+  function matchesSignal(stock, signal) {
+    if (!signal || signal === "all") return true;
+    if (!window.StockPrediction || typeof StockPrediction.getSignal !== "function") return false;
+    const expected = signal === "signalBuy" ? "BUY / HOLD" : signal === "signalWatch" ? "WATCH" : "AVOID";
+    return StockPrediction.getSignal(stock.s, quoteCache) === expected;
+  }
+
   function refreshFilteredList() {
     const q = $("#searchInput").val().trim().toUpperCase();
-    const mode = getFilterMode();
+    let mode = getFilterMode();
+    let signal = getSignalMode();
+
+    // Old saved settings kept signal modes inside filterMode; migrate them.
+    if (mode && mode.indexOf("signal") === 0) {
+      if (signal === "all") signal = mode;
+      mode = "all";
+    }
+
     let next = STOCKS;
 
     if (q) {
@@ -304,6 +344,10 @@
 
     if (mode !== "all") {
       next = next.filter((s) => matchesFilter(s, mode));
+    }
+
+    if (signal !== "all") {
+      next = next.filter((s) => matchesSignal(s, signal));
     }
 
     filtered = applySort(next);
@@ -345,6 +389,12 @@
 
   $("#filterSelect").on("change", function () {
     SETTINGS.filterMode = $(this).val() || "all";
+    saveSettings();
+    refreshFilteredList();
+  });
+
+  $("#signalSelect").on("change", function () {
+    SETTINGS.signalMode = $(this).val() || "all";
     saveSettings();
     refreshFilteredList();
   });
@@ -571,6 +621,7 @@
         const c = charts[tf.key];
         if (h && c && h.clientWidth > 0) {
           c.chart.applyOptions({ width: h.clientWidth, height: h.clientHeight });
+          if (window.CandlePatternDetector) CandlePatternDetector.redraw(tf.key);
         }
       });
     });
@@ -598,6 +649,10 @@
         const pct = ((ohlc.close - ohlc.open) / ohlc.open) * 100;
         const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
         html += `<br><span class="change-pct ${cls}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
+      }
+      if (window.CandlePatternDetector) {
+        const pattern = CandlePatternDetector.getNameAt(tfKey, param.time);
+        if (pattern) html += `<br><span class="pattern-badge ${pattern.dir}">${pattern.name}</span>`;
       }
       $tip.html(html).show();
 
@@ -781,6 +836,7 @@
     $("#smaToggle").prop("checked", SETTINGS.smaEnabled);
     $("#rsiToggle").prop("checked", SETTINGS.rsiEnabled);
     $("#macdToggle").prop("checked", SETTINGS.macdEnabled);
+    $("#patternsToggle").prop("checked", SETTINGS.patternsEnabled);
     $("#niftyToggle").prop("checked", SETTINGS.autoLoadNifty);
     $("#proxyToggle").prop("checked", SETTINGS.useProxy);
     TIMEFRAMES.forEach((tf) => {
@@ -849,6 +905,12 @@
       SETTINGS.macdEnabled = $(this).is(":checked");
       saveSettings();
       applyStoredLayoutState();
+      rerenderAllFromCache();
+    });
+
+    $("#patternsToggle").on("change", function () {
+      SETTINGS.patternsEnabled = $(this).is(":checked");
+      saveSettings();
       rerenderAllFromCache();
     });
 
@@ -1122,6 +1184,16 @@
     }
 
     c.chart.timeScale().fitContent();
+
+    if (window.CandlePatternDetector) {
+      CandlePatternDetector.render(
+        tfKey,
+        c.chart,
+        c.series,
+        c.host,
+        SETTINGS.patternsEnabled ? CandlePatternDetector.detect(bars) : []
+      );
+    }
 
     if (["M", "W", "D"].includes(tfKey) && window.StockPrediction) {
       StockPrediction.update(currentStock, full, c, tfKey, filtered, quoteCache);

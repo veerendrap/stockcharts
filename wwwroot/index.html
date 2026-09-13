@@ -57,6 +57,7 @@
     <div class="list-meta">
       <select id="sortSelect" class="sort-select" title="Sort symbols by">
         <option value="change">Sort: Change %</option>
+        <option value="momentum">Sort: Momentum</option>
         <option value="symbol">Sort: Symbol</option>
         <option value="sector">Sort: Sector</option>
       </select>
@@ -66,6 +67,12 @@
         <option value="negative">Filter: -Change %</option>
         <option value="nearHigh">Filter: Near 52W High</option>
         <option value="above5sma">Filter: Above 5 SMA (Daily)</option>
+      </select>
+      <select id="signalSelect" class="sort-select" title="Filter symbols by signal">
+        <option value="all">Signal: All</option>
+        <option value="signalBuy">Signal: BUY / HOLD</option>
+        <option value="signalWatch">Signal: WATCH</option>
+        <option value="signalAvoid">Signal: AVOID</option>
       </select>
       <span id="listMeta">Loading…</span>
     </div>
