@@ -1,10 +1,11 @@
 /* =========================================================
    Candlestick Pattern Detector
-   Detects classic single / dual / triple candle patterns and
-   highlights the pattern candles with a light green/red box.
-   Only patterns whose direction is confirmed by the next candle
-   are shown; the candle name is revealed in the hover/OHLC tooltip,
-   so nothing is drawn on the chart and candles stay readable.
+   Detects classic single / dual / triple candle patterns and marks
+   the pattern candles with a small up arrow (above a bullish candle)
+   or down arrow (below a bearish candle). Only patterns whose
+   direction is confirmed by the next candle are shown; the candle
+   name is revealed in the hover/OHLC tooltip, so nothing else is
+   drawn on the chart and candles stay readable.
    ========================================================= */
 
 window.CandlePatternDetector = (function () {
@@ -14,7 +15,7 @@ window.CandlePatternDetector = (function () {
   const LONG_WICK_FACTOR = 2;
   const TREND_LOOKBACK = 3;
   const MAX_POINTS = 400;   // cap on detected items per timeframe
-  const MAX_BOXES = 20;     // cap on highlighted candles (most recent first)
+  const MAX_MARKERS = 20;   // cap on highlighted candles (most recent first)
 
   const PATTERN_INFO = {
     "Morning Star": "Bullish reversal: big down candle, indecision, strong up close.",
@@ -198,8 +199,8 @@ window.CandlePatternDetector = (function () {
   /* ---------- box highlight overlay + hover tooltip lookup ---------- */
 
   // Registers a timeframe's chart/series/host and the detected points.
-  // Confirmed pattern candles are boxed with a light green/red border,
-  // and the candle's name is looked up via getNameAt() by the hover tooltip.
+  // Confirmed pattern candles are marked with an up/down arrow, and the
+  // candle's name is looked up via getNameAt() by the hover tooltip.
   function render(tfKey, chart, series, host, points) {
     let state = states[tfKey];
     if (!state) {
@@ -248,36 +249,23 @@ window.CandlePatternDetector = (function () {
     state.container.innerHTML = "";
     const points = state.points;
 
-    // Box every detected pattern candle within the visible range.
+    // Mark every confirmed pattern candle within the visible range: an up
+    // arrow above a bullish candle, a down arrow below a bearish one.
     if (points && points.length) {
-      // Actual spacing between bar centres (survives zoom/scroll): the
-      // v4.1 API has no timeScale().barSpacing() method, so it is derived
-      // from the visible logical range instead.
-      let barSpacing = 4;
-      const visibleRange = state.chart.timeScale().getVisibleLogicalRange();
-      if (visibleRange && visibleRange.to > visibleRange.from) {
-        const xFrom = state.chart.timeScale().logicalToCoordinate(visibleRange.from);
-        const xTo = state.chart.timeScale().logicalToCoordinate(visibleRange.to);
-        if (xFrom !== null && xTo !== null) {
-          const derived = (xTo - xFrom) / (visibleRange.to - visibleRange.from);
-          if (Number.isFinite(derived) && derived > 0) barSpacing = derived;
-        }
-      }
-      const start = Math.max(0, points.length - MAX_BOXES);
+      const start = Math.max(0, points.length - MAX_MARKERS);
       for (let i = start; i < points.length; i++) {
         const point = points[i];
         const x = state.chart.timeScale().timeToCoordinate(point.time);
         if (x === null || x === undefined) continue;
-        const yTop = state.series.priceToCoordinate(point.high);
-        const yBottom = state.series.priceToCoordinate(point.low);
-        if (yTop === null || yTop === undefined || yBottom === null || yBottom === undefined) continue;
-        const box = document.createElement("div");
-        box.className = "pattern-box " + point.dir;
-        box.style.left = (x - barSpacing / 2) + "px";
-        box.style.top = yTop + "px";
-        box.style.width = Math.max(1, barSpacing) + "px";
-        box.style.height = Math.max(1, yBottom - yTop) + "px";
-        state.container.appendChild(box);
+        const bullish = point.dir === "bullish";
+        const y = state.series.priceToCoordinate(bullish ? point.high : point.low);
+        if (y === null || y === undefined) continue;
+        const marker = document.createElement("div");
+        marker.className = "pattern-marker " + point.dir;
+        marker.textContent = bullish ? "▲" : "▼";
+        marker.style.left = x + "px";
+        marker.style.top = (bullish ? y - 4 : y + 4) + "px";
+        state.container.appendChild(marker);
       }
     }
   }

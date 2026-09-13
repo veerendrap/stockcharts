@@ -780,20 +780,22 @@ kbd{
   overflow:hidden;
   z-index:3;
 }
-.pattern-box{
+.pattern-marker{
   position:absolute;
-  box-sizing:border-box;
-  border:1px solid var(--border);
-  border-radius:2px;
+  font-family:var(--font-ui);
+  font-size:11px;
+  font-weight:700;
+  line-height:1;
   pointer-events:none;
+  text-shadow:0 1px 2px rgba(0,0,0,.4);
 }
-.pattern-box.bullish{
-  border-color:color-mix(in srgb,var(--up) 65%,var(--border));
-  background:color-mix(in srgb,var(--up) 9%,transparent);
+.pattern-marker.bullish{
+  color:var(--up);
+  transform:translate(-50%,-100%);
 }
-.pattern-box.bearish{
-  border-color:color-mix(in srgb,var(--down) 65%,var(--border));
-  background:color-mix(in srgb,var(--down) 9%,transparent);
+.pattern-marker.bearish{
+  color:var(--down);
+  transform:translate(-50%,0%);
 }
 .pattern-badge{
   display:inline-block;
