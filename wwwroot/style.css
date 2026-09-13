@@ -491,8 +491,11 @@ kbd{
   background:var(--panel-alt);
   border:1px solid var(--border);
   border-radius:6px;
-  padding:5px 7px;
+  padding:2px 4px;
   color:var(--text-dim);
+  font-size:8.5px;
+  line-height:1;
+  max-width:44px;
 }
 .nav-btn, .refresh-btn{
   background:var(--panel-alt);

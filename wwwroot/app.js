@@ -1222,8 +1222,8 @@
     const change = last.close - prev.close;
     const pct = prev.close ? (change / prev.close) * 100 : 0;
     const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
-    const changeText = `${pct >= 0 ? "+" : "-"}${fmt(Math.abs(pct))}%`;
-    let headline = `<span class="panel-change ${dir} title='% Change'">Δ ${changeText}</span>`;
+    const changeText = fmtPercent(pct);
+    let headline = `<span class="panel-change ${dir}" title='% Change'">Δ ${changeText}</span>`;
     if (SETTINGS.rsiEnabled && rsiWin.length) headline += ` <span>RSI ${fmt(rsiWin[rsiWin.length - 1].value)}</span>`;
     if (SETTINGS.macdEnabled && macdWin.length && sigWin.length) {
       headline += ` <span>MACD ${fmt(macdWin[macdWin.length - 1].value)}/${fmt(sigWin[sigWin.length - 1].value)}</span>`;
