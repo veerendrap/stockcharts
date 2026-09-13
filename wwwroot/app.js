@@ -138,10 +138,11 @@
 
   function renderList(list, query) {
     const $list = $("#stockList");
+    $("#addSymbolBtn").toggleClass("visible", !!query && !list.length);
     if (!list.length) {
       $list.html(
         query
-          ? `<div class="empty-hint">No match for <b>${escapeHtml(query)}</b>.<br>Press <kbd>Enter</kbd> to fetch it directly as a ticker symbol.</div>`
+          ? `<div class="empty-hint">No match for <b>${escapeHtml(query)}</b>.<br>Click <b class="add-glyph">+</b> to add it as a ticker symbol.</div>`
           : `<div class="empty-hint">No symbols match your search.</div>`
       );
       return;
@@ -412,6 +413,15 @@
     } else {
       loadCustomSymbol(q);
     }
+  });
+
+  // The editorial "+" shown only when the typed symbol isn't in the list:
+  // clicking it adds the query as a raw ticker and loads its charts + analysis.
+  $("#addSymbolBtn").on("click", function () {
+    const q = $("#searchInput").val().trim().toUpperCase();
+    if (!q) return;
+    loadCustomSymbol(q);
+    $(this).removeClass("visible");
   });
 
   /* ---------------------------------------------------------
