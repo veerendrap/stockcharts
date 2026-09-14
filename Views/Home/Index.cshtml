@@ -107,7 +107,7 @@
           <div class="sym-block">
             <div class="big-sym">
               <span class="symtext">—</span>
-              <span class="exchange-tag">NSE</span>
+              @*<span class="exchange-tag">NSE</span> *@
             </div>
             <div class="company-name">Select a symbol from the list</div>
           </div>
@@ -226,6 +226,23 @@
         </div>
         <div class="settings-row">
           <div>
+            <div class="row-label">Analysis data points</div>
+            <div class="row-hint">Candles used for win-rate analysis (loaded, not all shown)</div>
+          </div>
+          <input type="number" id="analysisPointsInput" class="settings-input" min="20" max="2000" step="10" value="150">
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Right axis</div>
+            <div class="row-hint">Scale shows % change by default</div>
+          </div>
+          <div class="segmented" id="axisModeSeg">
+            <button data-val="percent" class="active">% Change</button>
+            <button data-val="price">Price</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
             <div class="row-label">Price axis decimals</div>
             <div class="row-hint">Right-side price precision</div>
           </div>
@@ -234,6 +251,16 @@
             <option value="1">1</option>
             <option value="2">2</option>
             <option value="3">3</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Percent base</div>
+            <div class="row-hint">0% reference on the % axis</div>
+          </div>
+          <select id="percentBaseSelect" class="settings-select">
+            <option value="current">Current price = 0%</option>
+            <option value="first">First visible bar = 0%</option>
           </select>
         </div>
       </div>
@@ -249,6 +276,24 @@
             <span class="track"></span>
             <span class="thumb"></span>
           </label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Supertrend</div>
+            <div class="row-hint">Trailing trend line (ATR period below)</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="supertrendToggle">
+            <span class="track"></span>
+            <span class="thumb"></span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">Supertrend period</div>
+            <div class="row-hint">ATR lookback (default 5)</div>
+          </div>
+          <input type="number" id="supertrendPeriodInput" class="settings-input" min="1" max="50" step="1" value="5">
         </div>
         <div class="settings-row">
           <div>

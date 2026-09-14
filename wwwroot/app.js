@@ -29,6 +29,7 @@
   const SMA_PERIOD = 5;
   const RSI_PERIOD = 14;
   const MACD_FAST = 12, MACD_SLOW = 26, MACD_SIGNAL = 9;
+  const SUPER_TREND_MULTIPLIER = 3;
 
   const NIFTY_STOCK = { s: "^NSEI", n: "Nifty 50 Index", i: "Index" };
 
@@ -40,9 +41,14 @@
     density: "compact",
     barCount: 60,
     priceDecimals: 0,
+    axisMode: "percent", // "percent" (default: right axis shows % change) | "price"
+    percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
+    analysisPoints: 150, // history depth used for win-rate/analysis (display still shows barCount)
     smaEnabled: true,
     rsiEnabled: false,
     macdEnabled: false,
+    supertrendEnabled: false,
+    supertrendPeriod: 5,
     patternsEnabled: true,
     chartColumns: 0, // "0" = responsive (web 2 / mobile 1) | "1".."4" = forced columns
     autoLoadNifty: true,
@@ -301,6 +307,16 @@
       error: error || null
     };
     saveSyncStore();
+  }
+
+  // During a sync run the list is NOT re-rendered per symbol (that rebuilds
+  // the whole table plus the analysis universe and starves the proxy queue).
+  // Instead just flip the status class on the visible row so feedback stays
+  // live; the full refresh happens once when the sync finishes.
+  function updateRowSyncBadge(symbol, status) {
+    const $sym = $(`.stock-row[data-sym="${symbol}"] .sym`);
+    if (!$sym.length) return;
+    $sym.attr("class", `sym sync-${status}`);
   }
 
   function matchesFilter(stock, mode) {
@@ -597,6 +613,11 @@
         priceLineVisible: false, lastValueVisible: false
       });
 
+      const stSeries = chart.addLineSeries({
+        color: cssVar("--candle-up"), lineWidth: 2,
+        priceLineVisible: false, lastValueVisible: false
+      });
+
       const rsiSeries = chart.addLineSeries({
         color: cssVar("--rsi-line"), lineWidth: 2,
         priceScaleId: "rsi",
@@ -615,7 +636,7 @@
         priceLineVisible: false, lastValueVisible: false
       });
 
-      charts[tf.key] = { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, levelPrices: [] };
+      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, levelPrices: [] };
       series.applyOptions({
         autoscaleInfoProvider: (originalProvider) => {
           const info = originalProvider();
@@ -631,6 +652,7 @@
       bindCrosshairTooltip(tf.key, host, chart, series);
     });
 
+    applyAxisMode();
     applyStoredLayoutState();
 
     resizeObserver = new ResizeObserver(() => {
@@ -646,8 +668,9 @@
     TIMEFRAMES.forEach((tf) => resizeObserver.observe(document.getElementById(`host-${tf.key}`)));
   }
 
-  function cssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  function cssVar(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback || "";
   }
 
   // Hover tooltip: shows OHLC + SMA5 for whatever bar the crosshair is over,
@@ -662,9 +685,17 @@
       const ohlc = param.seriesData.get(series);
       if (!ohlc) { $tip.hide(); return; }
 
-      let html = `O <b>${fmt(ohlc.open)}</b> H <b>${fmt(ohlc.high)}</b> L <b>${fmt(ohlc.low)}</b> C <b>${fmt(ohlc.close)}</b>`;
-      if (ohlc.open != null && ohlc.close != null && ohlc.open !== 0) {
-        const pct = ((ohlc.close - ohlc.open) / ohlc.open) * 100;
+      // In the "current price = 0%" mode the series data is % deviations, so
+      // restore the raw prices for display (layout/shape is unaffected).
+      const st = charts[tfKey] && charts[tfKey].pctTx;
+      const o = st ? st.C + ohlc.open / st.k : ohlc.open;
+      const h = st ? st.C + ohlc.high / st.k : ohlc.high;
+      const l = st ? st.C + ohlc.low / st.k : ohlc.low;
+      const cl = st ? st.C + ohlc.close / st.k : ohlc.close;
+
+      let html = `O <b>${fmt(o)}</b> H <b>${fmt(h)}</b> L <b>${fmt(l)}</b> C <b>${fmt(cl)}</b>`;
+      if (o != null && cl != null && o !== 0) {
+        const pct = ((cl - o) / o) * 100;
         const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
         html += `<br><span class="change-pct ${cls}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
       }
@@ -684,15 +715,64 @@
     });
   }
 
-  function candleColors() {
-    const up = cssVar("--up");
-    const down = cssVar("--down");
+function candleColors() {
+    const up = cssVar("--candle-up") || cssVar("--up", "#0EB07C");
+    const down = cssVar("--candle-down") || cssVar("--down", "#F0434E");
     return {
       upColor: up, downColor: down,
       borderUpColor: up, borderDownColor: down,
       wickUpColor: up, wickDownColor: down,
-      priceFormat: priceFormatForDecimals(SETTINGS.priceDecimals)
+      priceFormat: candleSeriesFormat()
     };
+  }
+
+  function axisDecimals() {
+    return Math.max(0, Math.min(4, parseInt(SETTINGS.priceDecimals, 10) || 0));
+  }
+
+  // When "% Change" axis is anchored at the current price (percentBase =
+  // "current"), the price-pane data is fed to Lightweight Charts as literal
+  // % deviations from the last close ((price - close) / close * 100) on a
+  // NORMAL scale — LC only knows how to compute percentages relative to a
+  // series' FIRST value, so this linear transform is the only way to put 0%
+  // on the last candle.
+  function percentTxActive() {
+    return SETTINGS.axisMode === "percent" && SETTINGS.percentBase === "current";
+  }
+
+  // Right-axis format: "% change" by default (configurable to raw price).
+  function candleSeriesFormat() {
+    return SETTINGS.axisMode === "price"
+      ? priceFormatForDecimals(SETTINGS.priceDecimals)
+      : { type: "percent", precision: 2, minMove: 0.01 };
+  }
+
+  function applyAxisMode() {
+    const d = axisDecimals();
+    const tx = percentTxActive();
+    TIMEFRAMES.forEach((tf) => {
+      const c = charts[tf.key];
+      if (!c) return;
+      const mode = SETTINGS.axisMode === "price" || tx
+        ? LightweightCharts.PriceScaleMode.Normal
+        : LightweightCharts.PriceScaleMode.Percentage;
+      // v4.1.3 reads priceScale.%_options — localization.percentageFormatter /
+      // localization.priceFormatter are read live on every format call, so this
+      // makes the axis honor the decimals setting (the built-in % formatter is
+      // fixed at 2dp). In the transform mode the data is already % deviations,
+      // so the NORMAL scale's tick formatter appends the '%' instead.
+      c.series.applyOptions({
+        priceFormat: tx || SETTINGS.axisMode === "price"
+          ? priceFormatForDecimals(SETTINGS.priceDecimals)
+          : candleSeriesFormat()
+      });
+      c.chart.applyOptions({
+        localization: tx
+          ? { priceFormatter: (v) => `${v.toFixed(d)}%` }
+          : { percentageFormatter: (v) => `${v.toFixed(d)}%` }
+      });
+      c.series.priceScale().applyOptions({ mode });
+    });
   }
 
   function priceFormatForDecimals(n) {
@@ -724,8 +804,7 @@
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       autoSize: false,
       handleScroll: true,
-      handleScale: true,
-      localization: { priceFormatter: (price) => { if (price == null || Number.isNaN(price)) return "—"; return price.toFixed(SETTINGS.priceDecimals || 0); } }
+      handleScale: true
     };
   }
 
@@ -858,10 +937,15 @@
   function bindSettingsUI() {
     setSegActive("#themeSeg", SETTINGS.theme);
     setSegActive("#densitySeg", SETTINGS.density);
+    setSegActive("#axisModeSeg", SETTINGS.axisMode);
     $("#barCountInput").val(SETTINGS.barCount);
+    $("#analysisPointsInput").val(SETTINGS.analysisPoints);
     $("#rememberSymbolToggle").prop("checked", !!SETTINGS.rememberSelectedSymbol);
     $("#decimalsSelect").val(String(SETTINGS.priceDecimals));
+    $("#percentBaseSelect").val(SETTINGS.percentBase);
     $("#smaToggle").prop("checked", SETTINGS.smaEnabled);
+    $("#supertrendToggle").prop("checked", SETTINGS.supertrendEnabled);
+    $("#supertrendPeriodInput").val(SETTINGS.supertrendPeriod);
     $("#rsiToggle").prop("checked", SETTINGS.rsiEnabled);
     $("#macdToggle").prop("checked", SETTINGS.macdEnabled);
     $("#patternsToggle").prop("checked", SETTINGS.patternsEnabled);
@@ -908,18 +992,64 @@
       }, 350);
     });
 
+    let analysisTimer = null;
+    $("#analysisPointsInput").on("input", function () {
+      clearTimeout(analysisTimer);
+      analysisTimer = setTimeout(() => {
+        let n = parseInt($("#analysisPointsInput").val(), 10);
+        if (isNaN(n) || n < 20) n = 20;
+        if (n > 5000) n = 5000;
+        SETTINGS.analysisPoints = n;
+        saveSettings();
+        applyBarCountChange();
+      }, 350);
+    });
+
+    $("#axisModeSeg button").on("click", function () {
+      const val = $(this).data("val");
+      setSegActive("#axisModeSeg", val);
+      SETTINGS.axisMode = val;
+      saveSettings();
+      applyAxisMode();
+      rerenderAllFromCache(); // the "current" base feeds transformed data
+    });
+
+    $("#percentBaseSelect").on("change", function () {
+      SETTINGS.percentBase = $(this).val() === "first" ? "first" : "current";
+      saveSettings();
+      applyAxisMode();
+      rerenderAllFromCache();
+    });
+
     $("#decimalsSelect").on("change", function () {
       SETTINGS.priceDecimals = parseInt($(this).val(), 10) || 0;
       saveSettings();
-      TIMEFRAMES.forEach((tf) => {
-        charts[tf.key].series.applyOptions({ priceFormat: priceFormatForDecimals(SETTINGS.priceDecimals) });
-      });
+      applyAxisMode();
     });
 
     $("#smaToggle").on("change", function () {
       SETTINGS.smaEnabled = $(this).is(":checked");
       saveSettings();
       TIMEFRAMES.forEach((tf) => charts[tf.key].smaSeries.applyOptions({ visible: SETTINGS.smaEnabled }));
+    });
+
+    $("#supertrendToggle").on("change", function () {
+      SETTINGS.supertrendEnabled = $(this).is(":checked");
+      saveSettings();
+      rerenderAllFromCache();
+    });
+
+    let stPeriodTimer = null;
+    $("#supertrendPeriodInput").on("input", function () {
+      clearTimeout(stPeriodTimer);
+      stPeriodTimer = setTimeout(() => {
+        let p = parseInt($(this).val(), 10);
+        if (isNaN(p) || p < 1) p = 1;
+        if (p > 50) p = 50;
+        SETTINGS.supertrendPeriod = p;
+        saveSettings();
+        rerenderAllFromCache();
+      }, 300);
     });
 
     $("#rsiToggle").on("change", function () {
@@ -1043,10 +1173,12 @@
       c.chart.applyOptions(chartOptions());
       c.series.applyOptions(candleColors());
       c.smaSeries.applyOptions({ color: cssVar("--sma") });
+      c.stSeries.applyOptions({ color: cssVar("--candle-up") });
       c.rsiSeries.applyOptions({ color: cssVar("--rsi-line") });
       c.macdLine.applyOptions({ color: cssVar("--macd-line") });
       c.macdSignal.applyOptions({ color: cssVar("--macd-signal") });
     });
+    applyAxisMode();
     rerenderAllFromCache();
   }
 
@@ -1127,7 +1259,7 @@
 
     const source = DataSources.get(SETTINGS.dataSource);
     const interval = source.mapInterval(tfKey);
-    const range = source.mapRange(tfKey, SETTINGS.barCount);
+    const range = source.mapRange(tfKey, historyPointsNeeded());
     const candidates = buildSymbolCandidates(stock, source);
 
     let lastErr = null;
@@ -1179,15 +1311,37 @@
     const c = charts[tfKey];
     const windowStart = bars[0].time;
 
-    c.series.setData(bars);
+    // When the % axis is anchored at the current price, map every raw price-pane
+    // value to its % deviation from the last close ahead of setData(). Overlay
+    // (volume) and sub-panels (RSI/MACD) keep their own scales and stay raw.
+    const lastFull = full[full.length - 1];
+    const tx = percentTxActive() && lastFull && lastFull.close
+      ? { C: lastFull.close, k: 100 / lastFull.close }
+      : null;
+    c.pctTx = tx;
+    const X = tx ? (v) => (v - tx.C) * tx.k : (v) => v;
+
+    c.series.setData(bars.map((b) => ({
+      time: b.time,
+      open: X(b.open), high: X(b.high), low: X(b.low), close: X(b.close)
+    })));
 
     const volUp = cssVar("--vol-up"), volDown = cssVar("--vol-down");
     c.volSeries.setData(
       bars.map((b) => ({ time: b.time, value: b.volume || 0, color: b.close >= b.open ? volUp : volDown }))
     );
 
-    const smaWin = sliceToWindow(computeSMA(full, SMA_PERIOD), windowStart);
+    const smaWin = sliceToWindow(computeSMA(full, SMA_PERIOD), windowStart)
+      .map((p) => ({ time: p.time, value: X(p.value) }));
     c.smaSeries.setData(smaWin);
+
+    if (SETTINGS.supertrendEnabled) {
+      const stWin = sliceToWindow(computeSuperTrend(full, SETTINGS.supertrendPeriod, SUPER_TREND_MULTIPLIER), windowStart)
+        .map((p) => ({ time: p.time, value: X(p.value), color: p.color }));
+      c.stSeries.setData(stWin);
+    } else {
+      c.stSeries.setData([]);
+    }
 
     let rsiWin = [];
     if (SETTINGS.rsiEnabled) {
@@ -1224,7 +1378,9 @@
     }
 
     if (["M", "W", "D"].includes(tfKey) && window.StockPrediction) {
-      StockPrediction.update(currentStock, full, c, tfKey, filtered, quoteCache);
+      const analysisDepth = Number(SETTINGS.analysisPoints) || 0;
+      const analysisWin = analysisDepth > 0 ? full.slice(-analysisDepth) : full;
+      StockPrediction.update(currentStock, analysisWin, c, tfKey, filtered, quoteCache);
     }
 
     const last = bars[bars.length - 1];
@@ -1251,6 +1407,14 @@
     TIMEFRAMES.forEach((tf) => { if (candleCache[tf.key]) renderChartData(tf.key); });
   }
 
+  // How much history to pull: enough for both the visible bar window and
+  // the analysis depth (win-rate estimation needs more candles than are shown),
+  // plus a small warm-up buffer so the SMA5 line starts exactly ON the first
+  // visible candle instead of missing its first few bars.
+  function historyPointsNeeded() {
+    return (Math.max(Number(SETTINGS.barCount) || 0, Number(SETTINGS.analysisPoints) || 0) || 80) + 4;
+  }
+
   // Changing the bar count doesn't always need a re-fetch: if the cached
   // data was already pulled with a wide-enough range, just re-slice it
   // (instant, no network). Only when the new count needs MORE history than
@@ -1259,7 +1423,7 @@
     const source = DataSources.get(SETTINGS.dataSource);
     TIMEFRAMES.forEach((tf) => {
       if (!SETTINGS.visible[tf.key] || !candleCache[tf.key]) return;
-      const needed = source.mapRange(tf.key, SETTINGS.barCount);
+      const needed = source.mapRange(tf.key, historyPointsNeeded());
       const have = candleCacheRange[tf.key];
       if (have && source.rangeRank(tf.key, needed) > source.rangeRank(tf.key, have)) {
         if (currentStock) loadTimeframe(currentStock, tf.key);
@@ -1281,6 +1445,72 @@
       sum += bars[i].close;
       if (i >= period) sum -= bars[i - period].close;
       if (i >= period - 1) out.push({ time: bars[i].time, value: sum / period });
+    }
+    return out;
+  }
+
+  // Wilder-smoothed ATR — TR series first, then the same running average
+  // scheme used for RSI. atr[i] holds the raw TR before smoothing starts.
+  function computeATR(bars, period) {
+    const n = bars.length;
+    const tr = new Array(n).fill(0);
+    if (!n) return tr;
+    tr[0] = bars[0].high - bars[0].low;
+    for (let i = 1; i < n; i++) {
+      const b = bars[i];
+      const prevClose = bars[i - 1].close;
+      tr[i] = Math.max(b.high - b.low, Math.abs(b.high - prevClose), Math.abs(b.low - prevClose));
+    }
+    if (n <= period) return tr;
+    let sum = 0;
+    for (let i = 1; i <= period; i++) sum += tr[i];
+    tr[period] = sum / period;
+    for (let i = period + 1; i < n; i++) {
+      tr[i] = (tr[i - 1] * (period - 1) + tr[i]) / period;
+    }
+    return tr;
+  }
+
+  // SuperTrend: a trailing stop that hugs price and flips sides on
+  // breakout. Emitted as a single line whose per-point color shows the
+  // current trend (green = following the up-side lower band, red = the
+  // down-side upper band). Canonical ATR-period implementation.
+  function computeSuperTrend(bars, period, multiplier) {
+    const n = bars.length;
+    if (n <= period) return [];
+    const atr = computeATR(bars, period);
+    const hl2 = bars.map((b) => (b.high + b.low) / 2);
+    const basicUpper = [], basicLower = [], finalUpper = [], finalLower = [];
+    for (let i = 0; i < n; i++) {
+      basicUpper[i] = hl2[i] + multiplier * atr[i];
+      basicLower[i] = hl2[i] - multiplier * atr[i];
+      if (i === 0) {
+        finalUpper[0] = basicUpper[0];
+        finalLower[0] = basicLower[0];
+      } else {
+        finalUpper[i] = (basicUpper[i] < finalUpper[i - 1] || bars[i - 1].close > finalUpper[i - 1])
+          ? basicUpper[i] : finalUpper[i - 1];
+        finalLower[i] = (basicLower[i] > finalLower[i - 1] || bars[i - 1].close < finalLower[i - 1])
+          ? basicLower[i] : finalLower[i - 1];
+      }
+    }
+    const up = cssVar("--candle-up") || "#0EB07C";
+    const down = cssVar("--candle-down") || "#F0434E";
+    const out = [];
+    let dir = 1;
+    for (let i = period; i < n; i++) {
+      if (i === period) {
+        dir = bars[i].close > finalUpper[i] ? 1 : -1;
+      } else if (dir === 1) {
+        if (bars[i].close < finalLower[i]) dir = -1;
+      } else {
+        if (bars[i].close > finalUpper[i]) dir = 1;
+      }
+      out.push({
+        time: bars[i].time,
+        value: dir === 1 ? finalLower[i] : finalUpper[i],
+        color: dir === 1 ? up : down
+      });
     }
     return out;
   }
@@ -1400,7 +1630,10 @@
     syncInProgress = true;
     syncStopRequested = false;
     updateSyncSummary();
-    stocks.forEach((stock) => setSyncStatus(stock.s, "syncing"));
+    stocks.forEach((stock) => {
+      setSyncStatus(stock.s, "syncing");
+      updateRowSyncBadge(stock.s, "syncing");
+    });
     renderList(filtered, $("#searchInput").val().trim());
 
     const source = DataSources.get(SETTINGS.dataSource);
@@ -1415,7 +1648,7 @@
         if (!stock) continue;
         try {
           const interval = source.mapInterval("D");
-          const range = source.mapRange("D", SETTINGS.barCount);
+          const range = source.mapRange("D", historyPointsNeeded());
           const candidates = buildSymbolCandidates(stock, source);
           let payload = null;
           let notFound = false;
@@ -1465,6 +1698,7 @@
 
           if (!payload) {
             setSyncStatus(stock.s, notFound ? "not-found" : "error", notFound ? "Symbol not found" : "No data returned");
+            updateRowSyncBadge(stock.s, notFound ? "not-found" : "error");
             continue;
           }
 
@@ -1476,10 +1710,7 @@
           quoteCache[resolved.toUpperCase()] = payload;
           quoteCache[resolved.toLowerCase()] = payload;
           setSyncStatus(stock.s, "synced");
-
-          if (filtered.some((item) => item.s === stock.s) || getFilterMode() !== "all") {
-            refreshFilteredList();
-          }
+          updateRowSyncBadge(stock.s, "synced");
         } catch (err) {
           setSyncStatus(stock.s, "error", err && err.message ? err.message : "Sync failed");
           console.warn(`[${stock.s}] change load failed`, err);

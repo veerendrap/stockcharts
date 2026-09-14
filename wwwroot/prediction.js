@@ -131,9 +131,13 @@ window.StockPrediction = (function () {
       { price: analysis.target, color: "#1b8f7c", title: "TARGET" },
       { price: analysis.stop, color: "#d8393d", title: "STOP" }
     ];
-    chartInfo.levelPrices = lines.map((line) => line.price).filter(Number.isFinite);
+    // On the "current price = 0%" % axis the candle data is fed as deviations
+    // from the last close, so the level lines must live in that same space.
+    const tx = chartInfo.pctTx || null;
+    const mapPrice = tx ? (price) => (price - tx.C) * tx.k : (price) => price;
+    chartInfo.levelPrices = lines.map((line) => mapPrice(line.price)).filter(Number.isFinite);
     activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
-      price: line.price, color: line.color, lineWidth: 2,
+      price: mapPrice(line.price), color: line.color, lineWidth: 2,
       lineStyle: LightweightCharts.LineStyle.Dashed,
       axisLabelVisible: false, title: line.title
     }));

@@ -18,6 +18,8 @@
   --amber-soft:#FFF4E0;
   --up:        #1B8F7C;
   --down:      #D8393D;
+  --candle-up:   #0EB07C;
+  --candle-down: #F0434E;
   --sma:       #7C3AED;
   --rsi-line:  #0EA5E9;
   --macd-line: #2563EB;
@@ -55,6 +57,8 @@
   --amber-soft:#241D08;
   --up:        #26A69A;
   --down:      #EF5350;
+  --candle-up:   #2EE6A8;
+  --candle-down: #FF5C66;
   --sma:       #A78BFA;
   --rsi-line:  #38BDF8;
   --macd-line: #60A5FA;
@@ -716,7 +720,7 @@ kbd{
   gap:6px;
   height:95%;
   min-height:450px;
-  padding:6px;
+  padding:0px;
 }
 
 .chart-panel{
