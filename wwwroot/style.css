@@ -715,7 +715,7 @@ kbd{
 .card-mode .prediction-grid td:nth-child(10)::before{ content:"∿ Momentum"; }
 .card-mode .prediction-grid td:nth-child(11)::before{ content:"⌁ SMA"; }
 .card-mode .prediction-grid td:nth-child(11){ grid-column:1 / -1; border:0; }
-.card-mode .prediction-grid td.sma-alignment{ display:flex; overflow:auto; }
+.card-mode .prediction-grid td.sma-alignment{ display:flex; }
 .card-mode .prediction-grid td.sma-alignment::before{ align-self:center; }
 .card-mode .prediction-grid td small{ max-width:100%; }
 .card-mode .prediction-grid tbody tr:nth-child(even) td{ background:transparent; box-shadow:none; }

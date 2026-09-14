@@ -47,6 +47,7 @@
     smaEnabled: true,
     rsiEnabled: false,
     macdEnabled: false,
+    mfiEnabled: false,
     supertrendEnabled: false,
     supertrendPeriod: 5,
     patternsEnabled: true,
@@ -968,6 +969,7 @@ function candleColors() {
     $("#supertrendPeriodInput").val(SETTINGS.supertrendPeriod);
     $("#rsiToggle").prop("checked", SETTINGS.rsiEnabled);
     $("#macdToggle").prop("checked", SETTINGS.macdEnabled);
+    $("#mfiToggle").prop("checked", SETTINGS.mfiEnabled);
     $("#patternsToggle").prop("checked", SETTINGS.patternsEnabled);
     $("#niftyToggle").prop("checked", SETTINGS.autoLoadNifty);
     $("#proxyToggle").prop("checked", SETTINGS.useProxy);
@@ -1081,6 +1083,13 @@ function candleColors() {
 
     $("#macdToggle").on("change", function () {
       SETTINGS.macdEnabled = $(this).is(":checked");
+      saveSettings();
+      applyStoredLayoutState();
+      rerenderAllFromCache();
+    });
+
+    $("#mfiToggle").on("change", function () {
+      SETTINGS.mfiEnabled = $(this).is(":checked");
       saveSettings();
       applyStoredLayoutState();
       rerenderAllFromCache();
@@ -1825,6 +1834,7 @@ function candleColors() {
     $("#columnInfoBtn").on("click", function (event) {
       event.stopPropagation();
       $("#columnInfoPopover").toggleClass("show");
+      initPopoverTabs();
     });
     $("#columnInfoPopover").on("click", function (event) {
       event.stopPropagation();
@@ -1862,6 +1872,19 @@ function candleColors() {
       "aria-pressed": String(showAnalysis),
       title: showAnalysis ? "Show charts" : "Show analysis table",
       "aria-label": showAnalysis ? "Show charts" : "Show analysis table"
+    });
+  }
+
+  function initPopoverTabs() {
+    const popover = $("#columnInfoPopover");
+    if (popover.data("tabsInited")) return;
+    popover.data("tabsInited", true);
+    popover.on("click", ".popover-tab", function () {
+      const tab = $(this).data("tab");
+      popover.find(".popover-tab").removeClass("active");
+      $(this).addClass("active");
+      popover.find(".popover-panel").removeClass("active");
+      popover.find(".popover-panel[data-panel='" + tab + "']").addClass("active");
     });
   }
 

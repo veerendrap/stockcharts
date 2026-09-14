@@ -328,10 +328,6 @@ window.StockPrediction = (function () {
     headers.forEach((header) => {
       const cell = document.createElement("th");
       cell.textContent = header.text;
-      if (header.title) {
-        cell.setAttribute("title", header.title);
-        cell.style.cursor = "help";
-      }
       headerRow.appendChild(cell);
     });
     thead.appendChild(headerRow);
