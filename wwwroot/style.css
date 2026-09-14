@@ -124,6 +124,16 @@ input[type="checkbox"]{ accent-color:var(--amber); }
   width:100vw;
 }
 
+/* Desktop: collapsible sidebar via the ☰ toggle, like the mobile drawer */
+@media (min-width: 761px){
+  .app.sidebar-hidden .sidebar{
+    width:0;
+    min-width:0;
+    overflow:hidden;
+    border-right:0;
+  }
+}
+
 /* ---------- Sidebar ---------- */
 .sidebar{
   width:var(--sidebar-w);
@@ -429,7 +439,7 @@ kbd{
   min-width:0;
 }
 .menu-toggle{
-  display:none;
+  display:flex;
   background:transparent;
   border:1px solid var(--border);
   color:var(--text-dim);
@@ -779,28 +789,30 @@ kbd{
   font-family:var(--font-mono);
 }
 
-.panel-ohlc{
-  font-size:10px;
-  color:var(--text-dim);
-  font-family:var(--font-mono);
-  display:flex;
-  gap:2px;
-  border-left: 1px solid var(--border);
-  padding-left: 3px;
-}
-.panel-ohlc b{ color:var(--text); font-weight:600; }
-.panel-ohlc .panel-change{ font-weight:700; }
-.panel-ohlc .panel-change.up{ color:var(--up); }
-.panel-ohlc .panel-change.down{ color:var(--down); }
-.panel-ohlc .panel-change.flat{ color:var(--text-dim); }
-.panel-ohlc .sma-val{ color:var(--sma); }
-
 .chart-area{
   flex:1;
   position:relative;
   min-height:0;
 }
 .chart-canvas-host{ position:absolute; inset:0; }
+
+.chart-chip{
+  position:absolute;
+  left:6px;
+  z-index:2;
+  pointer-events:none;
+  font-family:var(--font-mono);
+  font-size:10px;
+  line-height:1.35;
+  color:var(--text-faint);
+  padding:1px 4px;
+  border-radius:3px;
+  background:color-mix(in srgb,var(--panel) 80%,transparent);
+  white-space:nowrap;
+}
+.chart-chip .chip-dir.up{ color:var(--up); }
+.chart-chip .chip-dir.down{ color:var(--down); }
+.chart-chip .chip-dir.flat{ color:var(--text-dim); }
 
 .chart-tooltip{
   position:absolute;
@@ -1120,7 +1132,6 @@ kbd{
 }
 
 @media (max-width: 760px){
-  .menu-toggle{ display:flex; }
   .sidebar{
     position:fixed;
     z-index:40;
@@ -1146,7 +1157,7 @@ kbd{
   .panel-head{ display:flex; align-items:center; gap:5px; padding:3px 6px; min-height:24px; }
   .panel-head-left{ flex:0 0 auto; gap:4px; min-width:0; }
   .panel-label{ font-size:8.5px; }
-  .panel-ohlc{ font-size:8px; gap:4px; }
+  .chart-chip{ font-size:9px; }
   .chart-area{ min-height:0; }
   .analysis-view{ padding:10px; }
   .analysis-head h2{ font-size:17px; }

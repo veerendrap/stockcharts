@@ -137,7 +137,7 @@ window.StockPrediction = (function () {
     const mapPrice = tx ? (price) => (price - tx.C) * tx.k : (price) => price;
     chartInfo.levelPrices = lines.map((line) => mapPrice(line.price)).filter(Number.isFinite);
     activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
-      price: mapPrice(line.price), color: line.color, lineWidth: 2,
+      price: mapPrice(line.price), color: line.color, lineWidth: 1.5,
       lineStyle: LightweightCharts.LineStyle.Dashed,
       axisLabelVisible: false, title: line.title
     }));

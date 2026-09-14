@@ -103,6 +103,12 @@
     $("#signalSelect").val(SETTINGS.signalMode || "all");
     $("#chartColumnsSelect").val(String(SETTINGS.chartColumns || 0));
     const fallbackData = window.STOCKS_DATA || [];
+    try {
+      if (!window.matchMedia("(max-width: 760px)").matches &&
+          localStorage.getItem("sc.sidebarHidden") === "1") {
+        $("#app").addClass("sidebar-hidden");
+      }
+    } catch (err) { /* storage may be unavailable */ }
     loadStockList(fallbackData);
   });
 
@@ -584,9 +590,11 @@
         `<span class="panel-label">${tf.label}</span>` +
         `</div>` +
         `<div class="prediction-levels" aria-label="Entry, target, and stop-loss levels"></div>` +
-        `<div class="panel-ohlc" id="ohlc-${tf.key}"></div>` +
         `</div>` +
         `<div class="chart-area">` +
+        `<div class="chart-chip chip-price" id="chip-price-${tf.key}"></div>` +
+        `<div class="chart-chip chip-rsi" id="chip-rsi-${tf.key}"></div>` +
+        `<div class="chart-chip chip-macd" id="chip-macd-${tf.key}"></div>` +
         `<div class="chart-canvas-host" id="host-${tf.key}"></div>` +
         `<div class="chart-tooltip" id="tooltip-${tf.key}"></div>` +
         `<div class="panel-state" id="state-${tf.key}">` +
@@ -688,14 +696,14 @@
       // In the "current price = 0%" mode the series data is % deviations, so
       // restore the raw prices for display (layout/shape is unaffected).
       const st = charts[tfKey] && charts[tfKey].pctTx;
-      const o = st ? st.C + ohlc.open / st.k : ohlc.open;
-      const h = st ? st.C + ohlc.high / st.k : ohlc.high;
-      const l = st ? st.C + ohlc.low / st.k : ohlc.low;
-      const cl = st ? st.C + ohlc.close / st.k : ohlc.close;
+      const rO = st ? st.C + ohlc.open / st.k : ohlc.open;
+      const rH = st ? st.C + ohlc.high / st.k : ohlc.high;
+      const rL = st ? st.C + ohlc.low / st.k : ohlc.low;
+      const rC = st ? st.C + ohlc.close / st.k : ohlc.close;
 
-      let html = `O <b>${fmt(o)}</b> H <b>${fmt(h)}</b> L <b>${fmt(l)}</b> C <b>${fmt(cl)}</b>`;
-      if (o != null && cl != null && o !== 0) {
-        const pct = ((cl - o) / o) * 100;
+      let html = `O <b>${fmt(rO)}</b> H <b>${fmt(rH)}</b> L <b>${fmt(rL)}</b> C <b>${fmt(rC)}</b>`;
+      if (rO != null && rC != null && rO !== 0) {
+        const pct = ((rC - rO) / rO) * 100;
         const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
         html += `<br><span class="change-pct ${cls}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
       }
@@ -853,6 +861,13 @@ function candleColors() {
     c.macdLine.priceScale().applyOptions({ scaleMargins: layout.macd });
     c.rsiSeries.applyOptions({ visible: SETTINGS.rsiEnabled });
     [c.macdLine, c.macdSignal, c.macdHist].forEach((s) => s.applyOptions({ visible: SETTINGS.macdEnabled }));
+
+    // Top-left value chips ride along with each pane's vertical band so they
+    // keep lining up with the price, RSI, and MACD plots regardless of layout.
+    const chip = (id, m) => $(`#${id}-${tfKey}`).css("top", `${Math.round(m.top * 100)}%`);
+    chip("chip-price", layout.price);
+    chip("chip-rsi", layout.rsi);
+    chip("chip-macd", layout.macd);
   }
 
   function setPanelState(tfKey, mode, message) {
@@ -1389,12 +1404,23 @@ function candleColors() {
     const pct = prev.close ? (change / prev.close) * 100 : 0;
     const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
     const changeText = fmtPercent(pct);
-    let headline = `<span class="panel-change ${dir}" title='% Change'">Δ ${changeText}</span>`;
-    if (SETTINGS.rsiEnabled && rsiWin.length) headline += ` <span>RSI ${fmt(rsiWin[rsiWin.length - 1].value)}</span>`;
-    if (SETTINGS.macdEnabled && macdWin.length && sigWin.length) {
-      headline += ` <span>MACD ${fmt(macdWin[macdWin.length - 1].value)}/${fmt(sigWin[sigWin.length - 1].value)}</span>`;
+    $(`#chip-price-${tfKey}`).html(
+      `<b>${fmt(last.close)}</b> <span class="chip-dir ${dir}">Δ ${changeText}</span>`
+    );
+
+    const $chipRsi = $(`#chip-rsi-${tfKey}`);
+    if (SETTINGS.rsiEnabled && rsiWin.length) {
+      $chipRsi.html(`RSI ${fmt(rsiWin[rsiWin.length - 1].value)}`).css("display", "");
+    } else {
+      $chipRsi.empty().css("display", "none");
     }
-    $(`#ohlc-${tfKey}`).html(headline);
+
+    const $chipMacd = $(`#chip-macd-${tfKey}`);
+    if (SETTINGS.macdEnabled && macdWin.length && sigWin.length) {
+      $chipMacd.html(`MACD ${fmt(macdWin[macdWin.length - 1].value)}/${fmt(sigWin[sigWin.length - 1].value)}`).css("display", "");
+    } else {
+      $chipMacd.empty().css("display", "none");
+    }
 
     if (tfKey === "D") updateTopbarPrice(last, prev, candleMetaCache[tfKey]);
   }
@@ -1757,8 +1783,14 @@ function candleColors() {
 
   function bindGlobalUI() {
     $("#menuToggle").on("click", function () {
-      $("#sidebar").addClass("open");
-      $("#scrim").addClass("show");
+      const mobile = window.matchMedia("(max-width: 760px)").matches;
+      if (mobile) {
+        $("#sidebar").addClass("open");
+        $("#scrim").addClass("show");
+      } else {
+        const hidden = $("#app").toggleClass("sidebar-hidden").hasClass("sidebar-hidden");
+        try { localStorage.setItem("sc.sidebarHidden", hidden ? "1" : ""); } catch (err) { /* storage may be unavailable */ }
+      }
     });
     $("#scrim").on("click", closeSidebarOnMobile);
     $("#analysisBtn").on("click", function () {
