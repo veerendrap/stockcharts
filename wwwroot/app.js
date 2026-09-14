@@ -592,9 +592,9 @@
         `<div class="prediction-levels" aria-label="Entry, target, and stop-loss levels"></div>` +
         `</div>` +
         `<div class="chart-area">` +
-        `<div class="chart-chip chip-price" id="chip-price-${tf.key}"></div>` +
-        `<div class="chart-chip chip-rsi" id="chip-rsi-${tf.key}"></div>` +
-        `<div class="chart-chip chip-macd" id="chip-macd-${tf.key}"></div>` +
+        `<div class="chart-overlay chip-price" id="chip-price-${tf.key}"></div>` +
+        `<div class="chart-overlay chip-rsi" id="chip-rsi-${tf.key}"></div>` +
+        `<div class="chart-overlay chip-macd" id="chip-macd-${tf.key}"></div>` +
         `<div class="chart-canvas-host" id="host-${tf.key}"></div>` +
         `<div class="chart-tooltip" id="tooltip-${tf.key}"></div>` +
         `<div class="panel-state" id="state-${tf.key}">` +
@@ -688,10 +688,11 @@
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !param.time || param.point.x < 0 || param.point.y < 0 || !param.seriesData) {
         $tip.hide();
+        resetPriceChip(tfKey);
         return;
       }
       const ohlc = param.seriesData.get(series);
-      if (!ohlc) { $tip.hide(); return; }
+      if (!ohlc) { $tip.hide(); resetPriceChip(tfKey); return; }
 
       // In the "current price = 0%" mode the series data is % deviations, so
       // restore the raw prices for display (layout/shape is unaffected).
@@ -700,6 +701,8 @@
       const rH = st ? st.C + ohlc.high / st.k : ohlc.high;
       const rL = st ? st.C + ohlc.low / st.k : ohlc.low;
       const rC = st ? st.C + ohlc.close / st.k : ohlc.close;
+
+      $(`#chip-price-${tfKey}`).html(chipPriceHTML(rO, rC));
 
       let html = `O <b>${fmt(rO)}</b> H <b>${fmt(rH)}</b> L <b>${fmt(rL)}</b> C <b>${fmt(rC)}</b>`;
       if (rO != null && rC != null && rO !== 0) {
@@ -862,12 +865,14 @@ function candleColors() {
     c.rsiSeries.applyOptions({ visible: SETTINGS.rsiEnabled });
     [c.macdLine, c.macdSignal, c.macdHist].forEach((s) => s.applyOptions({ visible: SETTINGS.macdEnabled }));
 
-    // Top-left value chips ride along with each pane's vertical band so they
-    // keep lining up with the price, RSI, and MACD plots regardless of layout.
-    const chip = (id, m) => $(`#${id}-${tfKey}`).css("top", `${Math.round(m.top * 100)}%`);
-    chip("chip-price", layout.price);
-    chip("chip-rsi", layout.rsi);
-    chip("chip-macd", layout.macd);
+    // Top-left value overlays ride along with each pane's vertical band so
+    // they keep lining up with the price, RSI, and MACD plots regardless of
+    // layout. (Native series.title labels render on the right here, over the
+    // scales, so the library's built-in pane labels aren't usable.)
+    const overlay = (id, m) => $(`#${id}-${tfKey}`).css("top", `${Math.round(m.top * 100)}%`);
+    overlay("chip-price", layout.price);
+    overlay("chip-rsi", layout.rsi);
+    overlay("chip-macd", layout.macd);
   }
 
   function setPanelState(tfKey, mode, message) {
@@ -1400,13 +1405,7 @@ function candleColors() {
 
     const last = bars[bars.length - 1];
     const prev = bars.length > 1 ? bars[bars.length - 2] : last;
-    const change = last.close - prev.close;
-    const pct = prev.close ? (change / prev.close) * 100 : 0;
-    const dir = change > 0 ? "up" : change < 0 ? "down" : "flat";
-    const changeText = fmtPercent(pct);
-    $(`#chip-price-${tfKey}`).html(
-      `<b>${fmt(last.close)}</b> <span class="chip-dir ${dir}">Δ ${changeText}</span>`
-    );
+    $(`#chip-price-${tfKey}`).html(chipPriceHTML(last.open, last.close));
 
     const $chipRsi = $(`#chip-rsi-${tfKey}`);
     if (SETTINGS.rsiEnabled && rsiWin.length) {
@@ -1609,6 +1608,25 @@ function candleColors() {
       ? ""
       : `<div class="price-meta ${highGap < 0 ? "down" : highGap > 0 ? "up" : "flat"}">${highGap < 0 ? "↓" : highGap > 0 ? "↑" : "•"} ${fmtPercent(Math.abs(highGap))} 52W</div>`;
     $("#priceBlock").html(gapHtml || `<div class="price-meta flat">—</div>`);
+  }
+
+  // Top-left price chip on the candle pane: same intraday (close-open)/open
+  // change % as the hover tooltip so both always agree. Uses RAW prices —
+  // callers must reverse the pct-axis transform first.
+  function chipPriceHTML(o, c) {
+    if (o == null || c == null || o === 0) return "";
+    const pct = ((c - o) / o) * 100;
+    const dir = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
+    return `<b>${fmt(c)}</b> <span class="chip-dir ${dir}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
+  }
+
+  // After the crosshair leaves, point the price chip back at the last candle.
+  function resetPriceChip(tfKey) {
+    const full = candleCache[tfKey];
+    const lastBar = full && full.length ? full[full.length - 1] : null;
+    const $chip = $(`#chip-price-${tfKey}`);
+    if (lastBar) $chip.html(chipPriceHTML(lastBar.open, lastBar.close));
+    else $chip.empty();
   }
 
   function fmtPercent(n) {

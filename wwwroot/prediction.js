@@ -28,9 +28,9 @@ window.StockPrediction = (function () {
     const riskDistance = Math.max(atr * 1.5, entry * 0.005);
     const stop = Math.max(0, entry - riskDistance);
     const risk = entry - stop;
-    const target = entry + risk * 2;
+    const rewardRisk = calculateRewardRisk(trendScore, atr, entry);
+    const target = entry + risk * rewardRisk;
     const probability = estimateHitRate(bars, atr);
-    const rewardRisk = risk > 0 ? (target - entry) / risk : 0;
     const signal = trendScore >= 4 ? "BUY / HOLD" : trendScore >= 2 ? "WATCH" : "AVOID";
     const direction = trendScore >= 2 ? "up" : trendScore <= 0 ? "down" : "flat";
 

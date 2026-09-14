@@ -41,7 +41,7 @@
   /* ---- Density (compact = default) ---- */
   --density-scale: 1;
   --sidebar-w: 240px;
-  --header-h: 46px;
+  --header-h: 40px;
 }
 
 :root[data-theme="dark"]{
@@ -796,7 +796,7 @@ kbd{
 }
 .chart-canvas-host{ position:absolute; inset:0; }
 
-.chart-chip{
+.chart-overlay{
   position:absolute;
   left:6px;
   z-index:2;
@@ -810,9 +810,12 @@ kbd{
   background:color-mix(in srgb,var(--panel) 80%,transparent);
   white-space:nowrap;
 }
-.chart-chip .chip-dir.up{ color:var(--up); }
-.chart-chip .chip-dir.down{ color:var(--down); }
-.chart-chip .chip-dir.flat{ color:var(--text-dim); }
+.chart-overlay b{ color:var(--text); font-weight:600; }
+.chart-overlay .chip-dir.up{ color:var(--up); }
+.chart-overlay .chip-dir.down{ color:var(--down); }
+.chart-overlay .chip-dir.flat{ color:var(--text-dim); }
+.chart-overlay.chip-rsi{ left:6px; }
+.chart-overlay.chip-macd{ left:6px; }
 
 .chart-tooltip{
   position:absolute;
@@ -1157,7 +1160,7 @@ kbd{
   .panel-head{ display:flex; align-items:center; gap:5px; padding:3px 6px; min-height:24px; }
   .panel-head-left{ flex:0 0 auto; gap:4px; min-width:0; }
   .panel-label{ font-size:8.5px; }
-  .chart-chip{ font-size:9px; }
+  .chart-overlay{ font-size:9px; }
   .chart-area{ min-height:0; }
   .analysis-view{ padding:10px; }
   .analysis-head h2{ font-size:17px; }
