@@ -72,8 +72,19 @@ window.StockPrediction = (function () {
     for (let index = bars.length - lookback - 1; index < bars.length - horizon; index++) {
       const entry = bars[index].close;
       const localAtr = average(bars.slice(Math.max(0, index - 13), index + 1).map((bar) => bar.high - bar.low)) || atr;
-      const target = entry + localAtr * 3;
-      const stop = entry - localAtr * 1.5;
+      const histBars = bars.slice(0, index + 1);
+      const histTrendScore = histBars.length >= 50 ? scoreTrend(
+        entry,
+        movingAverage(histBars.map(b => b.close), 20),
+        movingAverage(histBars.map(b => b.close), 50),
+        calculateRsi(histBars.map(b => b.close), 14),
+        histBars.length > 20 ? ((entry / histBars[histBars.length - 21].close) - 1) * 100 : 0
+      ) : 2;
+      const rr = calculateRewardRisk(histTrendScore, localAtr, entry);
+      const riskDistance = Math.max(localAtr * 1.5, entry * 0.005);
+      const stop = Math.max(0, entry - riskDistance);
+      const risk = entry - stop;
+      const target = entry + risk * rr;
       let result = null;
       for (let forward = index + 1; forward <= Math.min(index + horizon, bars.length - 1); forward++) {
         if (bars[forward].low <= stop) { result = false; break; }
@@ -82,6 +93,13 @@ window.StockPrediction = (function () {
       if (result !== null) { samples++; if (result) wins++; }
     }
     return samples >= 3 ? Math.round((wins / samples) * 100) : null;
+  }
+
+  function calculateRewardRisk(trendScore, atr, entry) {
+    const atrPct = entry > 0 ? (atr / entry) * 100 : 0;
+    const trendRatio = [1.5, 1.5, 2.0, 2.0, 2.5, 3.0][Math.min(5, Math.max(0, trendScore))];
+    const volRatio = atrPct > 3 ? 2.5 : atrPct > 1.5 ? 2.0 : 1.5;
+    return (trendRatio + volRatio) / 2;
   }
 
   function average(values) {
@@ -203,11 +221,15 @@ window.StockPrediction = (function () {
     const move = Number.isFinite(quote.changePct) ? quote.changePct : 0;
     const range = Math.max(current * 0.03, Math.abs(move) * current / 100);
     const stop = Math.max(0, current - range * 1.5);
+    const risk = current - stop;
+    const trendScore = move > 0 ? 3 : move < 0 ? 1 : 2;
+    const rr = calculateRewardRisk(trendScore, range, current);
+    const target = current + risk * rr;
     return {
-      current, entry: current, stop, target: current + range * 2,
-      probability: 50, trendScore: move > 0 ? 3 : move < 0 ? 1 : 2,
+      current, entry: current, stop, target,
+      probability: 50, trendScore,
       signal: move > 0 ? "WATCH" : "AVOID", direction: move > 0 ? "up" : move < 0 ? "down" : "flat",
-      momentum: move, rsi: null, provisional: true
+      momentum: move, rsi: null, provisional: true, rewardRisk: rr
     };
   }
 
@@ -264,7 +286,20 @@ window.StockPrediction = (function () {
   }
 
   function buildPredictionTable(stocks, quoteMap, selected) {
-    const headers = ["◫ Stock", "◆ Signal", "◎ Win rates", "• Entry", "▲ Target", "↗ Target %", "▼ Stop loss", "↘ Loss %", "⇄ R : R", "✦ Trend score", "∿ Momentum", "⌁ SMA alignment"];
+    const headers = [
+      { text: "◫ Stock", title: "" },
+      { text: "◆ Signal", title: "BUY/HOLD = trendScore ≥4, WATCH = 2-3, AVOID ≤1" },
+      { text: "◎ Win rates", title: "Historical target-hit rate from walk-forward backtest (D|W|M). % of samples where target hit before stop over 3-10 day horizon." },
+      { text: "• Entry", title: "Current price (reference level = 0%)" },
+      { text: "▲ Target", title: "Price target = entry + risk × dynamic R:R" },
+      { text: "↗ Target %", title: "Target as % from entry" },
+      { text: "▼ Stop loss", title: "Stop = entry − max(ATR×1.5, 0.5% of price)" },
+      { text: "↘ Loss %", title: "Stop as % from entry" },
+      { text: "⇄ R : R", title: "Dynamic risk:reward = avg(trendRatio, volRatio). trendRatio by trendScore [1.5,1.5,2,2,2.5,3]; volRatio by ATR% [>3%:2.5, >1.5%:2, else:1.5]" },
+      { text: "✦ Trend score", title: "0-5 technical alignment: price>SMA20, SMA20>SMA50, RSI 50-72, momentum>0, price>SMA50" },
+      { text: "∿ Momentum", title: "10-day price change %" },
+      { text: "⌁ SMA alignment", title: "Price vs SMA5/20/50/200: ▲ above, ▼ below, • insufficient data" }
+    ];
     const wrapper = document.createElement("div");
     wrapper.className = "analysis-table-wrap";
     const toolbar = document.createElement("div");
@@ -292,7 +327,11 @@ window.StockPrediction = (function () {
     const headerRow = document.createElement("tr");
     headers.forEach((header) => {
       const cell = document.createElement("th");
-      cell.textContent = header;
+      cell.textContent = header.text;
+      if (header.title) {
+        cell.setAttribute("title", header.title);
+        cell.style.cursor = "help";
+      }
       headerRow.appendChild(cell);
     });
     thead.appendChild(headerRow);
