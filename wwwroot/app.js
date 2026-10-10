@@ -45,6 +45,8 @@
     percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
     analysisPoints: 150, // history depth used for win-rate/analysis (display still shows barCount)
     smaEnabled: true,
+    volumeProfileEnabled: true,
+    volumeProfileBins: 24,
     rsiEnabled: false,
     macdEnabled: false,
     mfiEnabled: false,
@@ -593,6 +595,7 @@
         `<div class="chart-overlay chip-rsi" id="chip-rsi-${tf.key}"></div>` +
         `<div class="chart-overlay chip-macd" id="chip-macd-${tf.key}"></div>` +
         `<div class="chart-canvas-host" id="host-${tf.key}"></div>` +
+        `<canvas class="volume-profile-canvas" id="volume-profile-${tf.key}" aria-hidden="true"></canvas>` +
         `<div class="chart-tooltip" id="tooltip-${tf.key}"></div>` +
         `<div class="panel-state" id="state-${tf.key}">` +
         `<div class="spinner"></div><span>Select a symbol</span>` +
@@ -641,7 +644,9 @@
         priceLineVisible: false, lastValueVisible: false
       });
 
-      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, levelPrices: [] };
+      const profileCanvas = panel[0].querySelector(`#volume-profile-${tf.key}`);
+      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, profileCanvas, levelPrices: [] };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(() => drawVolumeProfile(tf.key));
       series.applyOptions({
         autoscaleInfoProvider: (originalProvider) => {
           const info = originalProvider();
@@ -667,6 +672,7 @@
         if (h && c && h.clientWidth > 0) {
           c.chart.applyOptions({ width: h.clientWidth, height: h.clientHeight });
           if (window.CandlePatternDetector) CandlePatternDetector.redraw(tf.key);
+          drawVolumeProfile(tf.key);
         }
       });
     });
@@ -979,6 +985,8 @@ function candleColors() {
     $("#decimalsSelect").val(String(SETTINGS.priceDecimals));
     $("#percentBaseSelect").val(SETTINGS.percentBase);
     $("#smaToggle").prop("checked", SETTINGS.smaEnabled);
+    $("#volumeProfileToggle").prop("checked", SETTINGS.volumeProfileEnabled);
+    $("#volumeProfileBinsInput").val(SETTINGS.volumeProfileBins);
     $("#supertrendToggle").prop("checked", SETTINGS.supertrendEnabled);
     $("#supertrendPeriodInput").val(SETTINGS.supertrendPeriod);
     $("#rsiToggle").prop("checked", SETTINGS.rsiEnabled);
@@ -1067,6 +1075,24 @@ function candleColors() {
       SETTINGS.smaEnabled = $(this).is(":checked");
       saveSettings();
       TIMEFRAMES.forEach((tf) => charts[tf.key].smaSeries.applyOptions({ visible: SETTINGS.smaEnabled }));
+    });
+
+    $("#volumeProfileToggle").on("change", function () {
+      SETTINGS.volumeProfileEnabled = $(this).is(":checked");
+      saveSettings();
+      TIMEFRAMES.forEach((tf) => drawVolumeProfile(tf.key));
+    });
+
+    let volumeProfileBinsTimer = null;
+    $("#volumeProfileBinsInput").on("change", function () {
+      clearTimeout(volumeProfileBinsTimer);
+      volumeProfileBinsTimer = setTimeout(() => {
+        const bins = Math.max(8, Math.min(64, parseInt($("#volumeProfileBinsInput").val(), 10) || 24));
+        SETTINGS.volumeProfileBins = bins;
+        $("#volumeProfileBinsInput").val(bins);
+        saveSettings();
+        TIMEFRAMES.forEach((tf) => drawVolumeProfile(tf.key));
+      }, 180);
     });
 
     $("#supertrendToggle").on("change", function () {
@@ -1461,6 +1487,7 @@ function candleColors() {
     setPanelState(tfKey, "hidden");
     const c = charts[tfKey];
     const windowStart = bars[0].time;
+    c.profileBars = bars;
 
     // When the % axis is anchored at the current price, map every raw price-pane
     // value to its % deviation from the last close ahead of setData(). Overlay
@@ -1517,6 +1544,7 @@ function candleColors() {
     }
 
     c.chart.timeScale().fitContent();
+    drawVolumeProfile(tfKey, bars);
 
     if (window.CandlePatternDetector) {
       CandlePatternDetector.render(
@@ -1557,6 +1585,101 @@ function candleColors() {
 
   function sliceToWindow(series, startTime) {
     return series.filter((p) => p.time >= startTime);
+  }
+
+  function drawVolumeProfile(tfKey, sourceBars) {
+    const chartState = charts[tfKey];
+    const canvas = chartState && chartState.profileCanvas;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    const bounds = canvas.getBoundingClientRect();
+    const width = bounds.width;
+    const height = bounds.height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = Math.max(1, Math.round(height * dpr));
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+    if (!SETTINGS.volumeProfileEnabled || !width || !height) return;
+
+    const allBars = sourceBars || chartState.profileBars;
+    if (!allBars || !allBars.length) return;
+    const range = chartState.chart.timeScale().getVisibleLogicalRange();
+    let first = 0;
+    let last = allBars.length - 1;
+    if (range) {
+      first = Math.max(0, Math.floor(range.from));
+      last = Math.min(allBars.length - 1, Math.ceil(range.to));
+    }
+    const bars = allBars.slice(first, last + 1);
+    if (!bars.length) return;
+
+    let minPrice = Infinity;
+    let maxPrice = -Infinity;
+    bars.forEach((bar) => {
+      minPrice = Math.min(minPrice, bar.low);
+      maxPrice = Math.max(maxPrice, bar.high);
+    });
+    if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) return;
+    if (maxPrice <= minPrice) {
+      minPrice *= 0.999;
+      maxPrice *= 1.001;
+    }
+
+    const binCount = Math.max(8, Math.min(64, Number(SETTINGS.volumeProfileBins) || 24));
+    const step = (maxPrice - minPrice) / binCount;
+    const volumes = new Array(binCount).fill(0);
+    bars.forEach((bar) => {
+      const volume = Number(bar.volume) || 0;
+      if (volume <= 0) return;
+      const candleRange = bar.high - bar.low;
+      if (candleRange <= 0) {
+        const index = Math.max(0, Math.min(binCount - 1, Math.floor((bar.close - minPrice) / step)));
+        volumes[index] += volume;
+        return;
+      }
+      for (let index = 0; index < binCount; index++) {
+        const binLow = minPrice + index * step;
+        const binHigh = binLow + step;
+        const overlap = Math.max(0, Math.min(bar.high, binHigh) - Math.max(bar.low, binLow));
+        if (overlap > 0) volumes[index] += volume * overlap / candleRange;
+      }
+    });
+
+    const maxVolume = Math.max(...volumes);
+    if (!Number.isFinite(maxVolume) || maxVolume <= 0) return;
+    const maxWidth = Math.min(96, Math.max(56, width * 0.22));
+    const transformPrice = chartState.pctTx
+      ? (price) => (price - chartState.pctTx.C) * chartState.pctTx.k
+      : (price) => price;
+    const pointOfControl = volumes.indexOf(maxVolume);
+
+    volumes.forEach((volume, index) => {
+      if (volume <= 0) return;
+      const low = minPrice + index * step;
+      const high = low + step;
+      const yLow = chartState.series.priceToCoordinate(transformPrice(low));
+      const yHigh = chartState.series.priceToCoordinate(transformPrice(high));
+      if (yLow == null || yHigh == null) return;
+      const ratio = volume / maxVolume;
+      context.globalAlpha = index === pointOfControl ? 0.62 : 0.12 + ratio * 0.32;
+      context.fillStyle = index === pointOfControl ? cssVar("--up") : cssVar("--amber");
+      context.fillRect(0, Math.min(yLow, yHigh), maxWidth * ratio, Math.max(1, Math.abs(yLow - yHigh) - 1));
+    });
+    const pointOfControlPrice = minPrice + (pointOfControl + 0.5) * step;
+    const pointOfControlY = chartState.series.priceToCoordinate(transformPrice(pointOfControlPrice));
+    if (pointOfControlY != null) {
+      context.globalAlpha = 0.9;
+      context.strokeStyle = cssVar("--up");
+      context.lineWidth = 1.5;
+      context.setLineDash([5, 3]);
+      context.beginPath();
+      context.moveTo(0, pointOfControlY);
+      context.lineTo(Math.max(maxWidth + 8, width - 56), pointOfControlY);
+      context.stroke();
+      context.setLineDash([]);
+    }
+    context.globalAlpha = 1;
   }
 
   function rerenderAllFromCache() {

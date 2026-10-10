@@ -833,6 +833,7 @@ kbd{
   min-height:0;
 }
 .chart-canvas-host{ position:absolute; inset:0; }
+.volume-profile-canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none; }
 
 .chart-overlay{
   position:absolute;
