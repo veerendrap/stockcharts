@@ -62,21 +62,14 @@
         <option value="symbol">Sort: Symbol</option>
         <option value="sector">Sort: Sector</option>
       </select>
-      <select id="filterSelect" class="sort-select" title="Filter symbols by">
-        <option value="all">Filter: All</option>
-        <option value="positive">Filter: +Change %</option>
-        <option value="negative">Filter: -Change %</option>
-        <option value="nearHigh">Filter: Near 52W High</option>
-        <option value="above5sma">Filter: Above 5 SMA (Daily)</option>
-      </select>
-      <select id="signalSelect" class="sort-select" title="Filter symbols by signal">
-        <option value="all">Signal: All</option>
-        <option value="signalBuy">Signal: BUY / HOLD</option>
-        <option value="signalWatch">Signal: WATCH</option>
-        <option value="signalAvoid">Signal: AVOID</option>
-      </select>
+      <button type="button" id="filterBtn" class="filter-btn" title="Configure stock filters" aria-label="Configure stock filters" aria-haspopup="dialog">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14l-5.5 6.2v4.2l-3 1.6v-5.8L3 4z" /></svg>
+        <span>Filters</span>
+        <span id="filterCount" class="filter-count" aria-label="Active filter count">0</span>
+      </button>
       <span id="listMeta">Loading…</span>
     </div>
+    <div id="activeFilterSummary" class="active-filter-summary">No filters selected</div>
 
     <div class="sync-bar">
       <button id="syncNowBtn" class="sync-btn" type="button" title="Refresh every symbol">Sync now</button>
@@ -177,6 +170,61 @@
 
     </div>
   </main>
+</div>
+
+<!-- ============ Filters modal ============ -->
+<div class="modal-scrim" id="filterScrim">
+  <section class="settings-modal filter-modal" id="filterModal" role="dialog" aria-modal="true" aria-labelledby="filterTitle">
+    <div class="settings-head">
+      <h3 id="filterTitle">Stock filters</h3>
+      <button type="button" class="settings-close" id="filterClose" aria-label="Close filters">✕</button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-section">
+        <h4>Signal</h4>
+        <div class="filter-control-row">
+          <select id="signalSelect" class="settings-select" title="Filter symbols by signal" aria-label="Signal filter">
+            <option value="all">All signals</option>
+            <option value="signalBuy">BUY / HOLD</option>
+            <option value="signalWatch">WATCH</option>
+            <option value="signalAvoid">AVOID</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h4>Daily Change %</h4>
+        <label class="filter-enable-row"><input type="checkbox" id="changeFilterEnabled"><span>Filter by daily change</span></label>
+        <div class="filter-control-row" id="changeFilterControls">
+          <select id="changeFilterOperator" class="settings-select" aria-label="Change percentage comparison">
+            <option value="gt">Greater than</option>
+            <option value="lt">Less than</option>
+          </select>
+          <label class="filter-value"><input type="number" id="changeFilterValue" class="settings-input" step="0.1"> <span>%</span></label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h4>Price High</h4>
+        <label class="filter-enable-row"><input type="checkbox" id="highFilterEnabled"><span>Filter by distance from a high</span></label>
+        <div class="filter-control-row" id="highFilterControls">
+          <select id="highFilterSource" class="settings-select" aria-label="Price high reference">
+            <option value="allTimeHigh">All-time high</option>
+            <option value="fiftyTwoWeekHigh">52-week high</option>
+          </select>
+          <label class="filter-value"><span>Within</span> <input type="number" id="highFilterPercent" class="settings-input" min="0" max="100" step="0.1"> <span>%</span></label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h4>Above 5 SMA</h4>
+        <label class="filter-check-row"><input type="checkbox" id="smaDailyFilter"><span>Daily</span></label>
+        <label class="filter-check-row"><input type="checkbox" id="smaWeeklyFilter"><span>Weekly</span></label>
+        <label class="filter-check-row"><input type="checkbox" id="smaMonthlyFilter"><span>Monthly</span></label>
+      </div>
+      <div class="filter-actions">
+        <button type="button" class="filter-clear-btn" id="clearFiltersBtn">Clear filters</button>
+        <button type="button" class="sync-btn" id="filterDoneBtn">Done</button>
+      </div>
+    </div>
+  </section>
 </div>
 
 <!-- ============ Settings modal ============ -->

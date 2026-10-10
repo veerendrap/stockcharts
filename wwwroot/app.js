@@ -55,7 +55,15 @@
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     sortMode: "change", // "change" | "momentum" | "symbol" | "sector"
-    filterMode: "all", // "all" | "positive" | "negative" | "nearHigh" | "above5sma"
+    filters: {
+      changeEnabled: false,
+      changeOperator: "gt",
+      changeValue: 0,
+      highEnabled: false,
+      highSource: "allTimeHigh",
+      highPercent: 1,
+      aboveSma: { D: false, W: false, M: false }
+    },
     signalMode: "all", // "all" | "signalBuy" | "signalWatch" | "signalAvoid"
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
@@ -74,6 +82,7 @@
   let syncStore = loadSyncStore();
   let syncInProgress = false;
   let syncStopRequested = false;
+  let weeklySmaSyncPending = false;
   const syncAbortControllers = new Set();
   const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist }
   const candleCache = {};  // tfKey -> full (unsliced) candle array for the current symbol
@@ -93,6 +102,7 @@
     applyDensity(SETTINGS.density);
     buildChartPanels();
     bindSettingsUI();
+    bindFilterUI();
     bindGlobalUI();
     updateGridLayout();
 
@@ -100,8 +110,8 @@
     // fetched with AJAX, so this works straight off disk (file://) with no
     // local server required.
     $("#sortSelect").val(SETTINGS.sortMode || "change");
-    $("#filterSelect").val(SETTINGS.filterMode || "all");
     $("#signalSelect").val(SETTINGS.signalMode || "all");
+    updateFilterUI();
     $("#chartColumnsSelect").val(String(SETTINGS.chartColumns || 0));
     const fallbackData = window.STOCKS_DATA || [];
     try {
@@ -242,10 +252,6 @@
     return $("<div>").text(str || "").html();
   }
 
-  function getFilterMode() {
-    return $("#filterSelect").val() || SETTINGS.filterMode || "all";
-  }
-
   function getSignalMode() {
     return $("#signalSelect").val() || SETTINGS.signalMode || "all";
   }
@@ -253,9 +259,8 @@
   function updateListMeta() {
     const total = STOCKS.length;
     const query = $("#searchInput").val().trim();
-    const mode = getFilterMode();
     const signal = getSignalMode();
-    const hasCriteria = query.length > 0 || mode !== "all" || signal !== "all";
+    const hasCriteria = query.length > 0 || activeFilterLabels().length > 0 || signal !== "all";
     $("#listMeta").text(hasCriteria ? `${filtered.length} of ${total}` : `${total} symbols`);
     updateSyncSummary();
   }
@@ -326,21 +331,26 @@
     $sym.attr("class", `sym sync-${status}`);
   }
 
-  function matchesFilter(stock, mode) {
+  function matchesFilters(stock) {
+    const filters = SETTINGS.filters;
+    const active = filters.changeEnabled || filters.highEnabled || filters.aboveSma.D || filters.aboveSma.W || filters.aboveSma.M;
+    if (!active) return true;
     const meta = getQuoteMeta(stock);
     if (!meta) return false;
 
-    if (mode === "positive") return Number.isFinite(meta.changePct) && meta.changePct > 0;
-    if (mode === "negative") return Number.isFinite(meta.changePct) && meta.changePct < 0;
-    if (mode === "nearHigh") {
-      const high = meta.fiftyTwoWeekHigh;
+    if (filters.changeEnabled) {
+      if (!Number.isFinite(meta.changePct)) return false;
+      if (filters.changeOperator === "lt" ? meta.changePct >= filters.changeValue : meta.changePct <= filters.changeValue) return false;
+    }
+    if (filters.highEnabled) {
+      const high = meta[filters.highSource];
       const price = meta.price;
       if (!Number.isFinite(high) || high <= 0 || !Number.isFinite(price) || price <= 0) return false;
-      return price >= high * 0.9;
+      if (price < high * (1 - filters.highPercent / 100)) return false;
     }
-    if (mode === "above5sma") {
-      return meta.aboveSma5 === true;
-    }
+    if (filters.aboveSma.D && meta.aboveSma5 !== true) return false;
+    if (filters.aboveSma.W && meta.aboveSma5Weekly !== true) return false;
+    if (filters.aboveSma.M && meta.aboveSma5Monthly !== true) return false;
     return true;
   }
 
@@ -353,14 +363,7 @@
 
   function refreshFilteredList() {
     const q = $("#searchInput").val().trim().toUpperCase();
-    let mode = getFilterMode();
-    let signal = getSignalMode();
-
-    // Old saved settings kept signal modes inside filterMode; migrate them.
-    if (mode && mode.indexOf("signal") === 0) {
-      if (signal === "all") signal = mode;
-      mode = "all";
-    }
+    const signal = getSignalMode();
 
     let next = STOCKS;
 
@@ -368,9 +371,7 @@
       next = next.filter((s) => s.s.toUpperCase().includes(q) || s.n.toUpperCase().includes(q));
     }
 
-    if (mode !== "all") {
-      next = next.filter((s) => matchesFilter(s, mode));
-    }
+    next = next.filter(matchesFilters);
 
     if (signal !== "all") {
       next = next.filter((s) => matchesSignal(s, signal));
@@ -413,15 +414,10 @@
     resortList();
   });
 
-  $("#filterSelect").on("change", function () {
-    SETTINGS.filterMode = $(this).val() || "all";
-    saveSettings();
-    refreshFilteredList();
-  });
-
   $("#signalSelect").on("change", function () {
     SETTINGS.signalMode = $(this).val() || "all";
     saveSettings();
+    updateFilterUI();
     refreshFilteredList();
   });
 
@@ -947,6 +943,24 @@ function candleColors() {
     } catch (e) { saved = null; }
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved || {});
     merged.visible = Object.assign({}, DEFAULT_SETTINGS.visible, (saved && saved.visible) || {});
+    merged.filters = Object.assign({}, DEFAULT_SETTINGS.filters, (saved && saved.filters) || {});
+    merged.filters.aboveSma = Object.assign({}, DEFAULT_SETTINGS.filters.aboveSma,
+      (saved && saved.filters && saved.filters.aboveSma) || {});
+    if (!saved || !saved.filters) {
+      const legacyMode = saved && saved.filterMode;
+      if (legacyMode === "positive" || legacyMode === "negative") {
+        merged.filters.changeEnabled = true;
+        merged.filters.changeOperator = legacyMode === "positive" ? "gt" : "lt";
+      } else if (legacyMode === "nearHigh" || legacyMode === "allTimeHigh") {
+        merged.filters.highEnabled = true;
+        merged.filters.highSource = legacyMode === "nearHigh" ? "fiftyTwoWeekHigh" : "allTimeHigh";
+        merged.filters.highPercent = legacyMode === "nearHigh" ? 10 : 1;
+      } else if (legacyMode === "above5sma") {
+        merged.filters.aboveSma.D = true;
+      } else if (legacyMode && legacyMode.indexOf("signal") === 0 && (!saved.signalMode || saved.signalMode === "all")) {
+        merged.signalMode = legacyMode;
+      }
+    }
     return merged;
   }
 
@@ -1142,6 +1156,114 @@ function candleColors() {
         else loadTimeframe(currentStock, tfKey);
       }
     });
+  }
+
+  function bindFilterUI() {
+    const filters = SETTINGS.filters;
+    $("#changeFilterEnabled").prop("checked", filters.changeEnabled);
+    $("#changeFilterOperator").val(filters.changeOperator);
+    $("#changeFilterValue").val(filters.changeValue);
+    $("#highFilterEnabled").prop("checked", filters.highEnabled);
+    $("#highFilterSource").val(filters.highSource);
+    $("#highFilterPercent").val(filters.highPercent);
+    $("#smaDailyFilter").prop("checked", filters.aboveSma.D);
+    $("#smaWeeklyFilter").prop("checked", filters.aboveSma.W);
+    $("#smaMonthlyFilter").prop("checked", filters.aboveSma.M);
+    updateFilterUI();
+
+    $("#filterBtn").on("click", () => $("#filterScrim").addClass("show"));
+    $("#filterClose, #filterDoneBtn").on("click", () => $("#filterScrim").removeClass("show"));
+    $("#filterScrim").on("click", function (event) {
+      if (event.target.id === "filterScrim") $(this).removeClass("show");
+    });
+    $("#filterModal input, #filterModal select").on("input change", function () {
+      const weeklyWasEnabled = SETTINGS.filters.aboveSma.W;
+      SETTINGS.filters = {
+        changeEnabled: $("#changeFilterEnabled").prop("checked"),
+        changeOperator: $("#changeFilterOperator").val() === "lt" ? "lt" : "gt",
+        changeValue: Number($("#changeFilterValue").val()) || 0,
+        highEnabled: $("#highFilterEnabled").prop("checked"),
+        highSource: $("#highFilterSource").val() === "fiftyTwoWeekHigh" ? "fiftyTwoWeekHigh" : "allTimeHigh",
+        highPercent: Math.max(0, Math.min(100, Number($("#highFilterPercent").val()) || 0)),
+        aboveSma: {
+          D: $("#smaDailyFilter").prop("checked"),
+          W: $("#smaWeeklyFilter").prop("checked"),
+          M: $("#smaMonthlyFilter").prop("checked")
+        }
+      };
+      saveSettings();
+      updateFilterUI();
+      refreshFilteredList();
+      if (!weeklyWasEnabled && SETTINGS.filters.aboveSma.W) {
+        if (syncInProgress) {
+          weeklySmaSyncPending = true;
+        } else {
+          syncPendingSymbols(STOCKS);
+        }
+      } else if (weeklyWasEnabled && !SETTINGS.filters.aboveSma.W) {
+        weeklySmaSyncPending = false;
+      }
+    });
+
+    $("#clearFiltersBtn").on("click", function () {
+      SETTINGS.filters = Object.assign({}, DEFAULT_SETTINGS.filters, {
+        aboveSma: Object.assign({}, DEFAULT_SETTINGS.filters.aboveSma)
+      });
+      SETTINGS.signalMode = "all";
+      $("#signalSelect").val("all");
+      bindFilterValues();
+      saveSettings();
+      updateFilterUI();
+      refreshFilteredList();
+      weeklySmaSyncPending = false;
+    });
+  }
+
+  function bindFilterValues() {
+    const filters = SETTINGS.filters;
+    $("#changeFilterEnabled").prop("checked", filters.changeEnabled);
+    $("#changeFilterOperator").val(filters.changeOperator);
+    $("#changeFilterValue").val(filters.changeValue);
+    $("#highFilterEnabled").prop("checked", filters.highEnabled);
+    $("#highFilterSource").val(filters.highSource);
+    $("#highFilterPercent").val(filters.highPercent);
+    $("#smaDailyFilter").prop("checked", filters.aboveSma.D);
+    $("#smaWeeklyFilter").prop("checked", filters.aboveSma.W);
+    $("#smaMonthlyFilter").prop("checked", filters.aboveSma.M);
+  }
+
+  function activeFilterLabels() {
+    const filters = SETTINGS.filters;
+    const labels = [];
+    if (filters.changeEnabled) {
+      labels.push(`Change ${filters.changeOperator === "lt" ? "<" : ">"} ${filters.changeValue}%`);
+    }
+    if (filters.highEnabled) {
+      const highLabel = filters.highSource === "fiftyTwoWeekHigh" ? "52W high" : "ATH";
+      labels.push(`Within ${filters.highPercent}% of ${highLabel}`);
+    }
+    if (filters.aboveSma.D) labels.push("Above 5 SMA (D)");
+    if (filters.aboveSma.W) labels.push("Above 5 SMA (W)");
+    if (filters.aboveSma.M) labels.push("Above 5 SMA (M)");
+    const signal = getSignalMode();
+    if (signal !== "all") {
+      labels.push(signal === "signalBuy" ? "Signal: BUY / HOLD" : signal === "signalWatch" ? "Signal: WATCH" : "Signal: AVOID");
+    }
+    return labels;
+  }
+
+  function updateFilterUI() {
+    const filters = SETTINGS.filters;
+    const count = activeFilterLabels().length;
+    $("#changeFilterControls").toggleClass("disabled", !filters.changeEnabled);
+    $("#changeFilterOperator, #changeFilterValue").prop("disabled", !filters.changeEnabled);
+    $("#highFilterControls").toggleClass("disabled", !filters.highEnabled);
+    $("#highFilterSource, #highFilterPercent").prop("disabled", !filters.highEnabled);
+    $("#filterBtn").toggleClass("active", count > 0);
+    $("#filterCount").text(count);
+    const labels = activeFilterLabels();
+    $("#activeFilterSummary").toggleClass("has-filters", labels.length > 0)
+      .text(labels.length ? labels.join(" · ") : "No filters selected");
   }
 
   function applyStoredLayoutState() {
@@ -1673,7 +1795,13 @@ function candleColors() {
   function syncPendingSymbols(stocks) {
     const pending = stocks.filter((stock) => {
       if (getSyncStatus(stock.s) === "not-found") return false;
-      return !window.StockPrediction || !StockPrediction.hasBars(stock.s);
+      const meta = getQuoteMeta(stock);
+      const filters = SETTINGS.filters;
+      return !window.StockPrediction || !StockPrediction.hasBars(stock.s) || !meta ||
+        !Number.isFinite(meta.allTimeHigh) ||
+        (filters.aboveSma.D && typeof meta.aboveSma5 !== "boolean") ||
+        (filters.aboveSma.W && typeof meta.aboveSma5Weekly !== "boolean") ||
+        (filters.aboveSma.M && typeof meta.aboveSma5Monthly !== "boolean");
     });
     return syncSymbols(pending);
   }
@@ -1723,6 +1851,47 @@ function candleColors() {
                 notFound = true;
                 continue;
               }
+              let allTimeHigh = null;
+              let aboveSma5Monthly = null;
+              try {
+                const historyInterval = source.mapInterval("M");
+                const historyRange = source.mapRange("M", Infinity);
+                const historyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(historyInterval)}&range=${encodeURIComponent(historyRange)}`;
+                const historyRequest = fetchWithControllerProxy(historyUrl);
+                syncAbortControllers.add(historyRequest.controllers[0]);
+                const historyJson = await historyRequest.promise;
+                syncAbortControllers.delete(historyRequest.controllers[0]);
+                const history = source.parseCandles(historyJson);
+                const highs = history.map((bar) => bar.high).filter((high) => Number.isFinite(high) && high > 0);
+                allTimeHigh = highs.length ? Math.max(...highs) : null;
+                const monthlySma = computeSMA(history, 5);
+                const lastMonthly = history[history.length - 1];
+                if (lastMonthly && monthlySma.length) {
+                  aboveSma5Monthly = lastMonthly.close > monthlySma[monthlySma.length - 1].value;
+                }
+              } catch (err) {
+                // The primary quote remains usable even when full history is unavailable.
+              }
+              let aboveSma5Weekly = null;
+              if (SETTINGS.filters.aboveSma.W) {
+                try {
+                  const weeklyInterval = source.mapInterval("W");
+                  const weeklyRange = source.mapRange("W", 100);
+                  const weeklyUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(weeklyInterval)}&range=${encodeURIComponent(weeklyRange)}`;
+                  const weeklyRequest = fetchWithControllerProxy(weeklyUrl);
+                  syncAbortControllers.add(weeklyRequest.controllers[0]);
+                  const weeklyJson = await weeklyRequest.promise;
+                  syncAbortControllers.delete(weeklyRequest.controllers[0]);
+                  const weekly = source.parseCandles(weeklyJson);
+                  const weeklySma = computeSMA(weekly, 5);
+                  const lastWeekly = weekly[weekly.length - 1];
+                  if (lastWeekly && weeklySma.length) {
+                    aboveSma5Weekly = lastWeekly.close > weeklySma[weeklySma.length - 1].value;
+                  }
+                } catch (err) {
+                  // The primary quote remains usable when weekly history is unavailable.
+                }
+              }
               const barCount = Number(SETTINGS.barCount);
               const bars = barCount > 0 ? candles.slice(-barCount) : candles;
               if (window.StockPrediction) StockPrediction.cacheBars(stock.s, candles);
@@ -1730,17 +1899,21 @@ function candleColors() {
               const prev = bars.length > 1 ? bars[bars.length - 2] : last;
               const change = last.close - prev.close;
               const changePct = prev.close ? (change / prev.close) * 100 : 0;
-              const smaSeries = computeSMA(bars, 5);
+              const smaSeries = computeSMA(candles, 5);
               const sma5 = smaSeries.length ? smaSeries[smaSeries.length - 1].value : null;
-              const aboveSma5 = sma5 != null && last.close > sma5;
+              const latestDaily = candles[candles.length - 1];
+              const aboveSma5 = sma5 != null && latestDaily.close > sma5;
               const meta = extractMeta(json);
               payload = {
                 price: last.close,
                 change,
                 changePct,
                 aboveSma5,
+                aboveSma5Weekly,
+                aboveSma5Monthly,
                 sma5,
-                fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null
+                fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null,
+                allTimeHigh
               };
               break;
             } catch (err) {
@@ -1779,11 +1952,14 @@ function candleColors() {
           if (getSyncStatus(stock.s) === "syncing") setSyncStatus(stock.s, "pending");
         });
       }
+      const syncWeeklyAfterCurrentRun = weeklySmaSyncPending && SETTINGS.filters.aboveSma.W && !syncStopRequested;
+      weeklySmaSyncPending = false;
       syncInProgress = false;
       saveSyncStore();
       refreshFilteredList();
       updateSyncSummary();
       if (window.StockPrediction) StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
+      if (syncWeeklyAfterCurrentRun) syncPendingSymbols(STOCKS);
     });
   }
 
