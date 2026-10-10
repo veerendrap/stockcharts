@@ -15,6 +15,7 @@ public class HomeController : Controller
             ["nifty100"] = "ind_nifty100list.csv",
             ["nifty200"] = "ind_nifty200list.csv",
             ["nifty500"] = "ind_nifty500list.csv",
+            ["niftyipo"] = "ind_niftyipolist.csv",
             ["niftymidcap50"] = "ind_niftymidcap50list.csv",
             ["niftymidcap100"] = "ind_niftymidcap100list.csv",
             ["niftymidcap150"] = "ind_niftymidcap150list.csv",

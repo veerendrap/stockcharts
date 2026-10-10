@@ -54,6 +54,7 @@
           <option value="nifty100">NIFTY 100</option>
           <option value="nifty200">NIFTY 200</option>
           <option value="nifty500" selected>NIFTY 500</option>
+          <option value="niftyipo">NIFTY IPO</option>
         </optgroup>
         <optgroup label="Market capitalization">
           <option value="niftymidcap50">NIFTY Midcap 50</option>
@@ -148,6 +149,10 @@
         <div class="price-block" id="priceBlock"></div>
         <button class="nav-btn" id="prevBtn" disabled title="Previous symbol (↑)">◀</button>
         <button class="nav-btn" id="nextBtn" disabled title="Next symbol (↓ or Shift+scroll)">▶</button>
+        <div class="view-tabs" role="tablist" aria-label="Market views">
+          <button type="button" class="view-tab active" id="stockChartsTab" role="tab" aria-selected="true" aria-controls="stockChartView">Stocks</button>
+          <button type="button" class="view-tab" id="marketsTab" role="tab" aria-selected="false" aria-controls="marketsView">Markets</button>
+        </div>
         <button class="analysis-btn" id="analysisBtn" aria-label="Show analysis table" aria-pressed="false" title="Show analysis table">▥</button>
         <button class="refresh-btn" id="refreshBtn" title="Reload charts">⟳</button>
       </div>
@@ -155,6 +160,7 @@
 
     <div class="grid-wrap" id="gridWrap">
 
+      <div class="stock-chart-view" id="stockChartView">
       <div class="placeholder" id="placeholder">
         <span class="big-dot"></span>
         <h2>Pick a stock to load its charts</h2>
@@ -167,6 +173,104 @@
       </div>
 
       <div class="chart-grid" id="chartGrid"></div>
+      </div>
+
+      <section class="markets-view" id="marketsView" aria-label="Market index charts">
+        <div class="market-view-head">
+          <div>
+            <div class="analysis-kicker">MARKET INDICES</div>
+            <h2>Index charts</h2>
+            <p class="market-view-description">Daily broad-market and sector index charts. Scroll to explore all charts.</p>
+          </div>
+        </div>
+        <div class="market-charts-grid">
+          <article class="market-chart-card">
+            <h3>NIFTY 50</h3>
+            <div id="indexChartStatus-nifty50" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-nifty50" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Next 50</h3>
+            <div id="indexChartStatus-niftynext50" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftynext50" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY 100</h3>
+            <div id="indexChartStatus-nifty100" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-nifty100" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY 200</h3>
+            <div id="indexChartStatus-nifty200" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-nifty200" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY 500</h3>
+            <div id="indexChartStatus-nifty500" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-nifty500" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Bank</h3>
+            <div id="indexChartStatus-niftybank" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftybank" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY IT</h3>
+            <div id="indexChartStatus-niftyit" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyit" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Auto</h3>
+            <div id="indexChartStatus-niftyauto" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyauto" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY FMCG</h3>
+            <div id="indexChartStatus-niftyfmcg" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyfmcg" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Pharma</h3>
+            <div id="indexChartStatus-niftypharma" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftypharma" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Metal</h3>
+            <div id="indexChartStatus-niftymetal" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftymetal" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Media</h3>
+            <div id="indexChartStatus-niftymedia" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftymedia" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Realty</h3>
+            <div id="indexChartStatus-niftyrealty" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyrealty" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Energy</h3>
+            <div id="indexChartStatus-niftyenergy" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyenergy" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY PSU Bank</h3>
+            <div id="indexChartStatus-niftypsubank" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftypsubank" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY Financial Services</h3>
+            <div id="indexChartStatus-niftyfinancialservices" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyfinancialservices" class="market-chart-host"></div>
+          </article>
+          <article class="market-chart-card">
+            <h3>NIFTY IPO</h3>
+            <div id="indexChartStatus-niftyipo" class="market-chart-status" aria-live="polite">Waiting to load…</div>
+            <div id="indexChartHost-niftyipo" class="market-chart-host"></div>
+          </article>
+        </div>
+      </section>
 
       <section class="analysis-view" id="analysisView" aria-live="polite">
         <div class="analysis-head">
