@@ -596,6 +596,7 @@
         `<div class="chart-overlay chip-macd" id="chip-macd-${tf.key}"></div>` +
         `<div class="chart-canvas-host" id="host-${tf.key}"></div>` +
         `<canvas class="volume-profile-canvas" id="volume-profile-${tf.key}" aria-hidden="true"></canvas>` +
+        `<canvas class="rsi-divergence-canvas" id="rsi-divergence-${tf.key}" aria-hidden="true"></canvas>` +
         `<div class="chart-tooltip" id="tooltip-${tf.key}"></div>` +
         `<div class="panel-state" id="state-${tf.key}">` +
         `<div class="spinner"></div><span>Select a symbol</span>` +
@@ -645,8 +646,12 @@
       });
 
       const profileCanvas = panel[0].querySelector(`#volume-profile-${tf.key}`);
-      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, profileCanvas, levelPrices: [] };
-      chart.timeScale().subscribeVisibleLogicalRangeChange(() => drawVolumeProfile(tf.key));
+      const divergenceCanvas = panel[0].querySelector(`#rsi-divergence-${tf.key}`);
+      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, profileCanvas, divergenceCanvas, levelPrices: [] };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+        drawVolumeProfile(tf.key);
+        drawRsiDivergences(tf.key);
+      });
       series.applyOptions({
         autoscaleInfoProvider: (originalProvider) => {
           const info = originalProvider();
@@ -673,6 +678,7 @@
           c.chart.applyOptions({ width: h.clientWidth, height: h.clientHeight });
           if (window.CandlePatternDetector) CandlePatternDetector.redraw(tf.key);
           drawVolumeProfile(tf.key);
+          drawRsiDivergences(tf.key);
         }
       });
     });
@@ -1521,9 +1527,11 @@ function candleColors() {
       c.stSeries.setData([]);
     }
 
+    let rsiValues = [];
     let rsiWin = [];
     if (SETTINGS.rsiEnabled) {
-      rsiWin = sliceToWindow(computeRSI(full, RSI_PERIOD), windowStart);
+      rsiValues = computeRSI(full, RSI_PERIOD);
+      rsiWin = sliceToWindow(rsiValues, windowStart);
       c.rsiSeries.setData(rsiWin);
     } else {
       c.rsiSeries.setData([]);
@@ -1545,6 +1553,9 @@ function candleColors() {
 
     c.chart.timeScale().fitContent();
     drawVolumeProfile(tfKey, bars);
+    c.divergenceBars = bars;
+    c.divergenceValues = rsiValues;
+    drawRsiDivergences(tfKey);
 
     if (window.CandlePatternDetector) {
       CandlePatternDetector.render(
@@ -1680,6 +1691,97 @@ function candleColors() {
       context.setLineDash([]);
     }
     context.globalAlpha = 1;
+  }
+
+  function detectRsiDivergences(bars, rsiValues) {
+    const rsiByTime = new Map(rsiValues.map((point) => [point.time, point.value]));
+    const pivots = { lows: [], highs: [] };
+    const wing = 2;
+    for (let index = wing; index < bars.length - wing; index++) {
+      const rsi = rsiByTime.get(bars[index].time);
+      if (!Number.isFinite(rsi)) continue;
+      let isLow = true;
+      let isHigh = true;
+      for (let offset = 1; offset <= wing; offset++) {
+        if (bars[index].low >= bars[index - offset].low || bars[index].low >= bars[index + offset].low) isLow = false;
+        if (bars[index].high <= bars[index - offset].high || bars[index].high <= bars[index + offset].high) isHigh = false;
+      }
+      if (isLow) pivots.lows.push({ index, time: bars[index].time, price: bars[index].low, rsi });
+      if (isHigh) pivots.highs.push({ index, time: bars[index].time, price: bars[index].high, rsi });
+    }
+
+    const divergences = [];
+    [
+      { points: pivots.lows, type: "bullish", compare: (previous, current) => current.price < previous.price && current.rsi > previous.rsi },
+      { points: pivots.highs, type: "bearish", compare: (previous, current) => current.price > previous.price && current.rsi < previous.rsi }
+    ].forEach(({ points, type, compare }) => {
+      for (let index = 1; index < points.length; index++) {
+        const previous = points[index - 1];
+        const current = points[index];
+        if (current.index - previous.index >= 5 && compare(previous, current)) {
+          divergences.push({ previous, current, type });
+        }
+      }
+    });
+    return divergences;
+  }
+
+  function drawRsiDivergences(tfKey) {
+    const chartState = charts[tfKey];
+    const canvas = chartState && chartState.divergenceCanvas;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    const bounds = canvas.getBoundingClientRect();
+    const width = bounds.width;
+    const height = bounds.height;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(width * dpr));
+    canvas.height = Math.max(1, Math.round(height * dpr));
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+    if (!SETTINGS.rsiEnabled || !width || !height) return;
+
+    const bars = chartState.divergenceBars;
+    const rsiValues = chartState.divergenceValues;
+    if (!bars || !rsiValues || !bars.length || !rsiValues.length) return;
+    const divergences = detectRsiDivergences(bars, rsiValues);
+    if (!divergences.length) return;
+
+    const priceY = (value) => chartState.series.priceToCoordinate(
+      chartState.pctTx ? (value - chartState.pctTx.C) * chartState.pctTx.k : value
+    );
+    const drawSegment = (x1, y1, x2, y2, color) => {
+      if (x1 == null || y1 == null || x2 == null || y2 == null) return;
+      context.strokeStyle = color;
+      context.lineWidth = 1.7;
+      context.setLineDash([4, 3]);
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+      context.setLineDash([]);
+      context.fillStyle = color;
+      context.beginPath();
+      context.arc(x1, y1, 2.5, 0, Math.PI * 2);
+      context.arc(x2, y2, 2.5, 0, Math.PI * 2);
+      context.fill();
+    };
+
+    divergences.forEach(({ previous, current, type }) => {
+      const color = cssVar(type === "bullish" ? "--up" : "--down");
+      const x1 = chartState.chart.timeScale().timeToCoordinate(previous.time);
+      const x2 = chartState.chart.timeScale().timeToCoordinate(current.time);
+      const price1 = priceY(previous.price);
+      const price2 = priceY(current.price);
+      const rsi1 = chartState.rsiSeries.priceToCoordinate(previous.rsi);
+      const rsi2 = chartState.rsiSeries.priceToCoordinate(current.rsi);
+      drawSegment(x1, price1, x2, price2, color);
+      drawSegment(x1, rsi1, x2, rsi2, color);
+      if (x2 == null || rsi2 == null) return;
+      context.font = `600 9px ${cssVar("--font-mono")}`;
+      context.fillStyle = color;
+      context.fillText(type === "bullish" ? "Bull div" : "Bear div", Math.min(width - 52, x2 + 5), Math.max(10, rsi2 - 6));
+    });
   }
 
   function rerenderAllFromCache() {
