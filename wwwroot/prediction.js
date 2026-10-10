@@ -20,7 +20,7 @@ window.StockPrediction = (function () {
     const sma20 = average(closes.slice(-20));
     const sma50 = average(closes.slice(-50));
     const sma200 = movingAverage(closes, 200);
-    const atr = average(bars.slice(-14).map((bar) => bar.high - bar.low));
+    const atr = averageTrueRange(bars);
     const rsi = calculateRsi(closes, 14);
     const momentum = closes.length > 20 ? ((current / closes[closes.length - 21]) - 1) * 100 : 0;
     const trendScore = scoreTrend(current, sma20, sma50, rsi, momentum);
@@ -66,12 +66,12 @@ window.StockPrediction = (function () {
   // Walks forward through recent history and counts whether target or stop wins first.
   function estimateHitRate(bars, atr) {
     const horizon = Math.min(10, Math.max(3, Math.floor(bars.length / 4)));
-    const lookback = Math.min(100, bars.length - horizon - 1);
-    if (lookback < 3) return null;
+    const firstIndex = Math.max(0, bars.length - horizon - 100);
+    if (bars.length - horizon - firstIndex < 3) return null;
     let wins = 0, samples = 0;
-    for (let index = bars.length - lookback - 1; index < bars.length - horizon; index++) {
+    for (let index = firstIndex; index < bars.length - horizon; index++) {
       const entry = bars[index].close;
-      const localAtr = average(bars.slice(Math.max(0, index - 13), index + 1).map((bar) => bar.high - bar.low)) || atr;
+      const localAtr = averageTrueRange(bars, index) || atr;
       const histBars = bars.slice(0, index + 1);
       const histTrendScore = histBars.length >= 50 ? scoreTrend(
         entry,
@@ -85,14 +85,32 @@ window.StockPrediction = (function () {
       const stop = Math.max(0, entry - riskDistance);
       const risk = entry - stop;
       const target = entry + risk * rr;
-      let result = null;
+      let won = false;
+      samples++;
       for (let forward = index + 1; forward <= Math.min(index + horizon, bars.length - 1); forward++) {
-        if (bars[forward].low <= stop) { result = false; break; }
-        if (bars[forward].high >= target) { result = true; break; }
+        if (bars[forward].low <= stop) break;
+        if (bars[forward].high >= target) { won = true; break; }
       }
-      if (result !== null) { samples++; if (result) wins++; }
+      if (won) wins++;
     }
     return samples >= 3 ? Math.round((wins / samples) * 100) : null;
+  }
+
+  function averageTrueRange(bars, endIndex = bars.length - 1, period = 14) {
+    const startIndex = Math.max(0, endIndex - period + 1);
+    const trueRanges = [];
+    for (let index = startIndex; index <= endIndex; index++) {
+      const bar = bars[index];
+      const previousClose = index > 0 ? bars[index - 1].close : null;
+      trueRanges.push(previousClose == null
+        ? bar.high - bar.low
+        : Math.max(
+          bar.high - bar.low,
+          Math.abs(bar.high - previousClose),
+          Math.abs(bar.low - previousClose)
+        ));
+    }
+    return average(trueRanges);
   }
 
   function calculateRewardRisk(trendScore, atr, entry) {
@@ -289,7 +307,7 @@ window.StockPrediction = (function () {
     const headers = [
       { text: "◫ Stock", title: "" },
       { text: "◆ Signal", title: "BUY/HOLD = trendScore ≥4, WATCH = 2-3, AVOID ≤1" },
-      { text: "◎ Win rates", title: "Historical target-hit rate from walk-forward backtest (D|W|M). % of samples where target hit before stop over 3-10 day horizon." },
+      { text: "◎ Win rates", title: "D, W and M are daily, weekly and monthly candles. For each timeframe, this is the percentage of up to 100 past setups where the target was reached before the stop within the next 3-10 candles. Stop-first and no-hit cases count as not wins; same-candle target/stop touches count as stop-first." },
       { text: "• Entry", title: "Current price (reference level = 0%)" },
       { text: "▲ Target", title: "Price target = entry + risk × dynamic R:R" },
       { text: "↗ Target %", title: "Target as % from entry" },
@@ -328,6 +346,10 @@ window.StockPrediction = (function () {
     headers.forEach((header) => {
       const cell = document.createElement("th");
       cell.textContent = header.text;
+      if (header.title) {
+        cell.title = header.title;
+        cell.setAttribute("aria-label", `${header.text}: ${header.title}`);
+      }
       headerRow.appendChild(cell);
     });
     thead.appendChild(headerRow);
@@ -355,7 +377,7 @@ window.StockPrediction = (function () {
       const winRates = formatWinRates(stock.s, analysis);
       appendStockCell(row, stock);
       appendCell(row, analysis.signal, false, `signal-${analysis.direction}`);
-      appendCell(row, winRates.text, false, "", "", analysis.probability);
+      appendCell(row, winRates.text, false, "", "", analysis.probability, winRates.tooltip);
       appendCell(row, money(analysis.current));
       appendCell(row, money(analysis.target), false, "value-up");
       appendCell(row, percent(targetDelta), false, "value-up", "", targetDelta);
@@ -387,7 +409,7 @@ window.StockPrediction = (function () {
     });
     return {
       text: parts.join("|"),
-      tooltip: "Winning rate by timeframe: Daily|Weekly|Monthly"
+      tooltip: "D = daily candles, W = weekly candles, M = monthly candles. Each percentage is wins divided by all tested past setups, rounded to a whole number. The test checks up to 100 entry candles and the next 3-10 candles; stop-first and no-hit cases are not wins. If target and stop are both touched in one candle, the stop is counted first. — means there are not enough samples."
     };
   }
 
@@ -469,10 +491,14 @@ window.StockPrediction = (function () {
     row.appendChild(cell);
   }
 
-  function appendCell(row, value, bold, className, secondary, order) {
+  function appendCell(row, value, bold, className, secondary, order, title) {
     const cell = document.createElement("td");
     if (className) cell.className = className;
     if (order !== undefined && order !== null && order !== "") cell.dataset.order = order;
+    if (title) {
+      cell.title = title;
+      cell.setAttribute("aria-label", `${value}. ${title}`);
+    }
     const valueNode = bold ? document.createElement("b") : document.createElement("span");
     valueNode.textContent = value;
     cell.appendChild(valueNode);
