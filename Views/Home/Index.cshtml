@@ -41,12 +41,47 @@
       <div>
         <div class="brand-mark">
           <span class="dot"></span>
-          <h1>NSE 500</h1>
+          <h1>NSE INDEX CHARTS</h1>
         </div>
         @* <div class="brand-sub">M · W · D · 1H quad view</div> *@
       </div>
       <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
     </div>
+
+    <label class="universe-select-wrap">
+      <span>Market index</span>
+      <select id="indexSelect" class="universe-select" aria-label="Select market index">
+        <optgroup label="Broad market">
+          <option value="nifty50">NIFTY 50</option>
+          <option value="niftynext50">NIFTY Next 50</option>
+          <option value="nifty100">NIFTY 100</option>
+          <option value="nifty200">NIFTY 200</option>
+          <option value="nifty500" selected>NIFTY 500</option>
+        </optgroup>
+        <optgroup label="Market capitalization">
+          <option value="niftymidcap50">NIFTY Midcap 50</option>
+          <option value="niftymidcap100">NIFTY Midcap 100</option>
+          <option value="niftymidcap150">NIFTY Midcap 150</option>
+          <option value="niftysmallcap50">NIFTY Smallcap 50</option>
+          <option value="niftysmallcap100">NIFTY Smallcap 100</option>
+          <option value="niftysmallcap250">NIFTY Smallcap 250</option>
+        </optgroup>
+        <optgroup label="Sector indexes">
+          <option value="niftybank">NIFTY Bank</option>
+          <option value="niftyfinancialservices">NIFTY Financial Services</option>
+          <option value="niftyit">NIFTY IT</option>
+          <option value="niftyauto">NIFTY Auto</option>
+          <option value="niftyfmcg">NIFTY FMCG</option>
+          <option value="niftypharma">NIFTY Pharma</option>
+          <option value="niftymetal">NIFTY Metal</option>
+          <option value="niftymedia">NIFTY Media</option>
+          <option value="niftyrealty">NIFTY Realty</option>
+          <option value="niftyenergy">NIFTY Energy</option>
+          <option value="niftypsubank">NIFTY PSU Bank</option>
+        </optgroup>
+      </select>
+    </label>
+    <div id="indexLoadStatus" class="index-load-status" aria-live="polite"></div>
 
     <div class="search-wrap">
       <input type="text" id="searchInput" class="search-input" placeholder="Search symbol, company, or type any ticker…" autocomplete="off">
@@ -82,7 +117,7 @@
     </div>
 
     <div class="stock-list" id="stockList">
-      <div class="empty-hint">Loading NSE 500 list…</div>
+      <div class="empty-hint">Loading index constituents…</div>
     </div>
 
     <div class="disclosure">

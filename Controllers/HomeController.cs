@@ -7,6 +7,33 @@ namespace StockChartsMvc.Controllers;
 
 public class HomeController : Controller
 {
+    private static readonly IReadOnlyDictionary<string, string> IndexConstituentFiles =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["nifty50"] = "ind_nifty50list.csv",
+            ["niftynext50"] = "ind_niftynext50list.csv",
+            ["nifty100"] = "ind_nifty100list.csv",
+            ["nifty200"] = "ind_nifty200list.csv",
+            ["nifty500"] = "ind_nifty500list.csv",
+            ["niftymidcap50"] = "ind_niftymidcap50list.csv",
+            ["niftymidcap100"] = "ind_niftymidcap100list.csv",
+            ["niftymidcap150"] = "ind_niftymidcap150list.csv",
+            ["niftysmallcap50"] = "ind_niftysmallcap50list.csv",
+            ["niftysmallcap100"] = "ind_niftysmallcap100list.csv",
+            ["niftysmallcap250"] = "ind_niftysmallcap250list.csv",
+            ["niftybank"] = "ind_niftybanklist.csv",
+            ["niftyfinancialservices"] = "ind_niftyfinancialserviceslist.csv",
+            ["niftyit"] = "ind_niftyitlist.csv",
+            ["niftyauto"] = "ind_niftyautolist.csv",
+            ["niftyfmcg"] = "ind_niftyfmcglist.csv",
+            ["niftypharma"] = "ind_niftypharmalist.csv",
+            ["niftymetal"] = "ind_niftymetalList.csv",
+            ["niftymedia"] = "ind_niftymedialist.csv",
+            ["niftyrealty"] = "ind_niftyrealtylist.csv",
+            ["niftyenergy"] = "ind_niftyenergylist.csv",
+            ["niftypsubank"] = "ind_niftypsubanklist.csv"
+        };
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HomeController> _logger;
 
@@ -86,20 +113,36 @@ public class HomeController : Controller
     }
 
     [HttpGet("api/nifty500-symbols")]
-    public async Task<IActionResult> GetNifty500Symbols()
+    public Task<IActionResult> GetNifty500Symbols()
     {
+        return LoadIndexSymbolsAsync("nifty500", HttpContext.RequestAborted);
+    }
+
+    [HttpGet("api/index-symbols")]
+    public Task<IActionResult> GetIndexSymbols([FromQuery] string index, CancellationToken cancellationToken)
+    {
+        return LoadIndexSymbolsAsync(index, cancellationToken);
+    }
+
+    private async Task<IActionResult> LoadIndexSymbolsAsync(string index, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(index) || !IndexConstituentFiles.TryGetValue(index, out var fileName))
+        {
+            return BadRequest(new { error = "Unsupported index selection" });
+        }
+
         try
         {
-            const string csvUrl = "https://nsearchives.nseindia.com/content/indices/ind_nifty500list.csv";
+            var csvUrl = $"https://nsearchives.nseindia.com/content/indices/{fileName}";
             using var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(15);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
 
-            var csv = await client.GetStringAsync(csvUrl);
+            var csv = await client.GetStringAsync(csvUrl, cancellationToken);
             var lines = csv.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length < 2)
             {
-                return StatusCode(502, new { error = "NSE returned an empty symbol list" });
+                return StatusCode(502, new { error = "NSE returned an empty index constituent list" });
             }
 
             var symbols = lines.Skip(1)
@@ -117,8 +160,8 @@ public class HomeController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Unable to fetch the current NIFTY 500 symbol list from NSE");
-            return StatusCode(502, new { error = "Unable to fetch the current NSE symbol list" });
+            _logger.LogWarning(ex, "Unable to fetch index constituents for {Index} from NSE", index);
+            return StatusCode(502, new { error = "Unable to fetch the selected NSE index constituents" });
         }
     }
 

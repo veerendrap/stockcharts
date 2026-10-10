@@ -56,6 +56,7 @@
     chartColumns: 0, // "0" = responsive (web 2 / mobile 1) | "1".."4" = forced columns
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
+    indexUniverse: "nifty500",
     sortMode: "change", // "change" | "momentum" | "symbol" | "sector"
     filters: {
       changeEnabled: false,
@@ -85,6 +86,8 @@
   let syncInProgress = false;
   let syncStopRequested = false;
   let weeklySmaSyncPending = false;
+  let universeSyncPending = false;
+  let universeRequestId = 0;
   const syncAbortControllers = new Set();
   const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist }
   const candleCache = {};  // tfKey -> full (unsliced) candle array for the current symbol
@@ -112,6 +115,7 @@
     // fetched with AJAX, so this works straight off disk (file://) with no
     // local server required.
     $("#sortSelect").val(SETTINGS.sortMode || "change");
+    $("#indexSelect").val(SETTINGS.indexUniverse || "nifty500");
     $("#signalSelect").val(SETTINGS.signalMode || "all");
     updateFilterUI();
     $("#chartColumnsSelect").val(String(SETTINGS.chartColumns || 0));
@@ -126,16 +130,25 @@
   });
 
   async function loadStockList(fallbackData) {
+    const index = $("#indexSelect").val() || "nifty500";
+    const requestId = ++universeRequestId;
     let data = fallbackData;
     try {
-      const response = await fetch("/api/nifty500-symbols", { cache: "no-store" });
-      if (response.ok) {
-        const current = await response.json();
-        if (Array.isArray(current) && current.length) data = current;
+      data = await fetchIndexSymbols(index);
+      $("#indexLoadStatus").text(`${$("#indexSelect option:selected").text()}: ${data.length} constituents`);
+    } catch (error) {
+      if (index !== "nifty500") {
+        $("#indexSelect").val("nifty500");
+        SETTINGS.indexUniverse = "nifty500";
+        saveSettings();
+        $("#indexLoadStatus").text(`Could not load ${$("#indexSelect option[value='" + index + "']").text()}; using NIFTY 500.`);
+      } else if (data.length) {
+        $("#indexLoadStatus").text("Live NIFTY 500 list unavailable; using the built-in list.");
+      } else {
+        $("#indexLoadStatus").text("Could not load the selected index constituents.");
       }
-    } catch (e) {
-      // The embedded list keeps the standalone file:// version usable.
     }
+    if (requestId !== universeRequestId) return;
 
     if (!data.length) {
       $("#stockList").html(
@@ -148,12 +161,50 @@
     STOCKS = data.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
     renderList(STOCKS, "");
     refreshFilteredList();
-    syncPendingSymbols(data);
+    syncPendingSymbols(STOCKS);
 
     if (SETTINGS.rememberSelectedSymbol && SETTINGS.lastSelectedSymbol) {
       restoreSavedSelection();
     } else if (SETTINGS.autoLoadNifty) {
       selectNifty();
+    }
+  }
+
+  async function fetchIndexSymbols(index) {
+    const response = await fetch(`/api/index-symbols?index=${encodeURIComponent(index)}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Index request failed (${response.status})`);
+    const symbols = await response.json();
+    if (!Array.isArray(symbols) || !symbols.length) throw new Error("The index returned no constituents");
+    return symbols;
+  }
+
+  async function changeIndexUniverse(index) {
+    const previousIndex = SETTINGS.indexUniverse || "nifty500";
+    const requestId = ++universeRequestId;
+    $("#indexSelect").prop("disabled", true);
+    $("#indexLoadStatus").text(`Loading ${$("#indexSelect option:selected").text()}…`);
+    try {
+      const stocks = await fetchIndexSymbols(index);
+      if (requestId !== universeRequestId) return;
+      SETTINGS.indexUniverse = index;
+      saveSettings();
+      STOCKS = stocks.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
+      $("#indexLoadStatus").text(`${$("#indexSelect option:selected").text()}: ${STOCKS.length} constituents`);
+      renderList(STOCKS, "");
+      refreshFilteredList();
+      if (syncInProgress) {
+        universeSyncPending = true;
+        syncStopRequested = true;
+      } else {
+        syncPendingSymbols(STOCKS);
+      }
+      if (filtered.length) selectByFilteredIndex(0);
+    } catch (error) {
+      if (requestId !== universeRequestId) return;
+      $("#indexSelect").val(previousIndex);
+      $("#indexLoadStatus").text(`Could not load ${$("#indexSelect option:selected").text()}; kept the previous index.`);
+    } finally {
+      if (requestId === universeRequestId) $("#indexSelect").prop("disabled", false);
     }
   }
 
@@ -2185,6 +2236,10 @@ function candleColors() {
       updateSyncSummary();
       if (window.StockPrediction) StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
       if (syncWeeklyAfterCurrentRun) syncPendingSymbols(STOCKS);
+      if (universeSyncPending) {
+        universeSyncPending = false;
+        syncPendingSymbols(STOCKS);
+      }
     });
   }
 
@@ -2210,6 +2265,10 @@ function candleColors() {
      --------------------------------------------------------- */
 
   function bindGlobalUI() {
+    $("#indexSelect").on("change", function () {
+      changeIndexUniverse($(this).val());
+    });
+
     $("#menuToggle").on("click", function () {
       const mobile = window.matchMedia("(max-width: 760px)").matches;
       if (mobile) {
