@@ -28,6 +28,7 @@
 
   const SMA_PERIOD = 5;
   const RSI_PERIOD = 14;
+  const MFI_PERIOD = 14;
   const MACD_FAST = 12, MACD_SLOW = 26, MACD_SIGNAL = 9;
   const SUPER_TREND_MULTIPLIER = 3;
 
@@ -88,7 +89,7 @@
   let universeSyncPending = false;
   let universeRequestId = 0;
   const syncAbortControllers = new Set();
-  const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, macdLine, macdSignal, macdHist }
+  const charts = {};       // tfKey -> { chart, series, volSeries, smaSeries, rsiSeries, mfiSeries, macdLine, macdSignal, macdHist }
   const candleCache = {};  // tfKey -> full (unsliced) candle array for the current symbol
   const candleCacheRange = {}; // tfKey -> Yahoo range string used to fetch the current candleCache
   const candleMetaCache = {}; // tfKey -> Yahoo meta info for the current symbol
@@ -646,6 +647,7 @@
         `<div class="chart-area">` +
         `<div class="chart-overlay chip-price" id="chip-price-${tf.key}"></div>` +
         `<div class="chart-overlay chip-rsi" id="chip-rsi-${tf.key}"></div>` +
+        `<div class="chart-overlay chip-mfi" id="chip-mfi-${tf.key}"></div>` +
         `<div class="chart-overlay chip-macd" id="chip-macd-${tf.key}"></div>` +
         `<div class="chart-canvas-host" id="host-${tf.key}"></div>` +
         `<canvas class="volume-profile-canvas" id="volume-profile-${tf.key}" aria-hidden="true"></canvas>` +
@@ -687,6 +689,11 @@
       });
       rsiSeries.createPriceLine({ price: 70, color: cssVar("--text-faint"), lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: "" });
       rsiSeries.createPriceLine({ price: 30, color: cssVar("--text-faint"), lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: "" });
+      const mfiSeries = chart.addLineSeries({
+        color: cssVar("--mfi-line"), lineWidth: 2,
+        priceScaleId: "rsi",
+        priceLineVisible: false, lastValueVisible: false
+      });
 
       const macdHist = chart.addHistogramSeries({ priceScaleId: "macd", priceFormat: { type: "price", precision: 2, minMove: 0.01 } });
       const macdLine = chart.addLineSeries({
@@ -700,7 +707,7 @@
 
       const profileCanvas = panel[0].querySelector(`#volume-profile-${tf.key}`);
       const divergenceCanvas = panel[0].querySelector(`#rsi-divergence-${tf.key}`);
-      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, macdLine, macdSignal, macdHist, host, levelsHost, profileCanvas, divergenceCanvas, levelPrices: [] };
+      charts[tf.key] = { chart, series, volSeries, smaSeries, stSeries, rsiSeries, mfiSeries, macdLine, macdSignal, macdHist, host, levelsHost, profileCanvas, divergenceCanvas, levelPrices: [] };
       chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
         drawVolumeProfile(tf.key);
         drawRsiDivergences(tf.key);
@@ -881,11 +888,11 @@ function candleColors() {
     };
   }
 
-  // RSI/MACD live inside the same chart as extra price scales, stacked
+  // RSI/MFI share an oscillator scale while MACD uses a separate scale, stacked
   // into vertical bands via scaleMargins — this avoids needing separate
   // chart instances (and the time-scale syncing that would require).
-  function computeLayout(rsiOn, macdOn) {
-    if (rsiOn && macdOn) {
+  function computeLayout(oscillatorOn, macdOn) {
+    if (oscillatorOn && macdOn) {
       return {
         price: { top: 0.03, bottom: 0.55 },
         vol:   { top: 0.47, bottom: 0.45 },
@@ -893,7 +900,7 @@ function candleColors() {
         macd:  { top: 0.80, bottom: 0.0 }
       };
     }
-    if (rsiOn && !macdOn) {
+    if (oscillatorOn && !macdOn) {
       return {
         price: { top: 0.03, bottom: 0.42 },
         vol:   { top: 0.60, bottom: 0.32 },
@@ -901,7 +908,7 @@ function candleColors() {
         macd:  { top: 1, bottom: 0 }
       };
     }
-    if (!rsiOn && macdOn) {
+    if (!oscillatorOn && macdOn) {
       return {
         price: { top: 0.03, bottom: 0.42 },
         vol:   { top: 0.60, bottom: 0.32 },
@@ -919,21 +926,24 @@ function candleColors() {
 
   function applyPaneLayout(tfKey) {
     const c = charts[tfKey];
-    const layout = computeLayout(SETTINGS.rsiEnabled, SETTINGS.macdEnabled);
+    const oscillatorOn = SETTINGS.rsiEnabled || SETTINGS.mfiEnabled;
+    const layout = computeLayout(oscillatorOn, SETTINGS.macdEnabled);
     c.series.priceScale().applyOptions({ scaleMargins: layout.price });
     c.volSeries.priceScale().applyOptions({ scaleMargins: layout.vol });
     c.rsiSeries.priceScale().applyOptions({ scaleMargins: layout.rsi });
     c.macdLine.priceScale().applyOptions({ scaleMargins: layout.macd });
-    c.rsiSeries.applyOptions({ visible: SETTINGS.rsiEnabled });
+    c.rsiSeries.applyOptions({ visible: oscillatorOn });
+    c.mfiSeries.applyOptions({ visible: SETTINGS.mfiEnabled });
     [c.macdLine, c.macdSignal, c.macdHist].forEach((s) => s.applyOptions({ visible: SETTINGS.macdEnabled }));
 
     // Top-left value overlays ride along with each pane's vertical band so
-    // they keep lining up with the price, RSI, and MACD plots regardless of
+    // they keep lining up with the price, oscillator, and MACD plots regardless of
     // layout. (Native series.title labels render on the right here, over the
     // scales, so the library's built-in pane labels aren't usable.)
     const overlay = (id, m) => $(`#${id}-${tfKey}`).css("top", `${Math.round(m.top * 100)}%`);
     overlay("chip-price", layout.price);
     overlay("chip-rsi", layout.rsi);
+    overlay("chip-mfi", layout.rsi);
     overlay("chip-macd", layout.macd);
   }
 
@@ -1411,6 +1421,7 @@ function candleColors() {
       c.smaSeries.applyOptions({ color: cssVar("--sma") });
       c.stSeries.applyOptions({ color: cssVar("--candle-up") });
       c.rsiSeries.applyOptions({ color: cssVar("--rsi-line") });
+      c.mfiSeries.applyOptions({ color: cssVar("--mfi-line") });
       c.macdLine.applyOptions({ color: cssVar("--macd-line") });
       c.macdSignal.applyOptions({ color: cssVar("--macd-signal") });
     });
@@ -1550,7 +1561,7 @@ function candleColors() {
 
     // When the % axis is anchored at the current price, map every raw price-pane
     // value to its % deviation from the last close ahead of setData(). Overlay
-    // (volume) and sub-panels (RSI/MACD) keep their own scales and stay raw.
+    // (volume) and sub-panels (RSI/MFI/MACD) keep their own scales and stay raw.
     const lastFull = full[full.length - 1];
     const tx = percentTxActive() && lastFull && lastFull.close
       ? { C: lastFull.close, k: 100 / lastFull.close }
@@ -1588,6 +1599,14 @@ function candleColors() {
       c.rsiSeries.setData(rsiWin);
     } else {
       c.rsiSeries.setData([]);
+    }
+
+    let mfiWin = [];
+    if (SETTINGS.mfiEnabled) {
+      mfiWin = sliceToWindow(computeMFI(full, MFI_PERIOD), windowStart);
+      c.mfiSeries.setData(mfiWin);
+    } else {
+      c.mfiSeries.setData([]);
     }
 
     let macdWin = [], sigWin = [], histWin = [];
@@ -1635,6 +1654,14 @@ function candleColors() {
       $chipRsi.html(`RSI ${fmt(rsiWin[rsiWin.length - 1].value)}`).css("display", "");
     } else {
       $chipRsi.empty().css("display", "none");
+    }
+
+    const $chipMfi = $(`#chip-mfi-${tfKey}`);
+    if (SETTINGS.mfiEnabled && mfiWin.length) {
+      $chipMfi.html(`MFI <b>${fmt(mfiWin[mfiWin.length - 1].value)}</b>`)
+        .css({ display: "", marginTop: SETTINGS.rsiEnabled ? "14px" : "0" });
+    } else {
+      $chipMfi.empty().css({ display: "none", marginTop: "0" });
     }
 
     const $chipMacd = $(`#chip-macd-${tfKey}`);
@@ -1992,6 +2019,40 @@ function candleColors() {
       avgGain = (avgGain * (period - 1) + gain) / period;
       avgLoss = (avgLoss * (period - 1) + loss) / period;
       out.push(rsiPoint(bars[i].time, avgGain, avgLoss));
+    }
+    return out;
+  }
+
+  function computeMFI(bars, period) {
+    if (bars.length < period + 1) return [];
+    const positiveFlows = new Array(bars.length).fill(0);
+    const negativeFlows = new Array(bars.length).fill(0);
+    let positiveTotal = 0;
+    let negativeTotal = 0;
+    const out = [];
+
+    for (let i = 1; i < bars.length; i++) {
+      const previous = bars[i - 1];
+      const current = bars[i];
+      const previousTypical = (previous.high + previous.low + previous.close) / 3;
+      const currentTypical = (current.high + current.low + current.close) / 3;
+      const volume = Number.isFinite(current.volume) && current.volume > 0 ? current.volume : 0;
+      const flow = currentTypical * volume;
+
+      if (currentTypical > previousTypical) positiveFlows[i] = flow;
+      else if (currentTypical < previousTypical) negativeFlows[i] = flow;
+
+      positiveTotal += positiveFlows[i];
+      negativeTotal += negativeFlows[i];
+      if (i > period) {
+        positiveTotal -= positiveFlows[i - period];
+        negativeTotal -= negativeFlows[i - period];
+      }
+      if (i >= period) {
+        const totalFlow = positiveTotal + negativeTotal;
+        const value = totalFlow === 0 ? 50 : positiveTotal / totalFlow * 100;
+        out.push({ time: current.time, value });
+      }
     }
     return out;
   }
