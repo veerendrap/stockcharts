@@ -2267,6 +2267,31 @@ function candleColors() {
      --------------------------------------------------------- */
 
   function bindGlobalUI() {
+    const fullscreenElement = document.documentElement;
+    const fullscreenButton = $("#fullscreenBtn");
+    const fullscreenAvailable = Boolean(fullscreenElement.requestFullscreen && document.exitFullscreen);
+    fullscreenButton.prop("disabled", !fullscreenAvailable);
+
+    const updateFullscreenButton = () => {
+      const active = document.fullscreenElement === fullscreenElement;
+      fullscreenButton
+        .attr("aria-pressed", String(active))
+        .attr("aria-label", active ? "Exit fullscreen" : "Enter fullscreen")
+        .attr("title", active ? "Exit fullscreen (Esc)" : "Enter fullscreen");
+    };
+
+    fullscreenButton.on("click", async function () {
+      if (!fullscreenAvailable) return;
+      try {
+        if (document.fullscreenElement === fullscreenElement) await document.exitFullscreen();
+        else await fullscreenElement.requestFullscreen();
+      } catch (error) {
+        fullscreenButton.attr("title", "Fullscreen could not be started");
+      }
+    });
+    document.addEventListener("fullscreenchange", updateFullscreenButton);
+    updateFullscreenButton();
+
     $("#indexSelect").on("change", function () {
       changeIndexUniverse($(this).val());
     });

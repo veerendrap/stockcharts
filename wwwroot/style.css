@@ -123,6 +123,11 @@ input[type="checkbox"]{ accent-color:var(--amber); }
   height:100vh;
   width:100vw;
 }
+html:fullscreen .app{
+  height:100%;
+  width:100%;
+  background:var(--bg);
+}
 
 /* Desktop: collapsible sidebar via the ☰ toggle, like the mobile drawer */
 @media (min-width: 761px){
@@ -618,7 +623,7 @@ kbd{
   font-size:14px;
   line-height:1;
 }
-.nav-btn, .refresh-btn{
+.nav-btn, .refresh-btn, .fullscreen-btn{
   background:var(--panel-alt);
   border:1px solid var(--border);
   color:var(--text);
@@ -631,8 +636,27 @@ kbd{
   gap:4px;
   transition:border-color .15s ease, color .15s ease;
 }
-.nav-btn:hover, .refresh-btn:hover{ border-color:var(--amber); color:var(--amber); }
+.nav-btn:hover, .refresh-btn:hover, .fullscreen-btn:hover{ border-color:var(--amber); color:var(--amber); }
+.fullscreen-btn{
+  width:28px;
+  height:26px;
+  padding:4px;
+  justify-content:center;
+}
+.fullscreen-btn svg{
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.fullscreen-btn .exit-icon,
+.fullscreen-btn[aria-pressed="true"] .enter-icon{ display:none; }
+.fullscreen-btn[aria-pressed="true"] .exit-icon{ display:block; }
 .nav-btn:disabled{ opacity:.35; cursor:not-allowed; }
+.fullscreen-btn:disabled{ opacity:.35; cursor:not-allowed; }
 
 /* ---------- Chart grid ---------- */
 .grid-wrap{
