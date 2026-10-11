@@ -32,25 +32,6 @@
   const SUPER_TREND_MULTIPLIER = 3;
 
   const NIFTY_STOCK = { s: "^NSEI", n: "Nifty 50 Index", i: "Index" };
-  const MARKET_INDEXES = [
-    { key: "nifty50", label: "NIFTY 50", symbol: "^NSEI" },
-    { key: "niftynext50", label: "NIFTY Next 50", symbol: "^NSMIDCP" },
-    { key: "nifty100", label: "NIFTY 100", symbol: "^CNX100" },
-    { key: "nifty200", label: "NIFTY 200", symbol: "^CNX200" },
-    { key: "nifty500", label: "NIFTY 500", symbol: "^CRSLDX" },
-    { key: "niftybank", label: "NIFTY Bank", symbol: "^NSEBANK" },
-    { key: "niftyfinancialservices", label: "NIFTY Financial Services", symbol: "^CNXFINANCE" },
-    { key: "niftyit", label: "NIFTY IT", symbol: "^CNXIT" },
-    { key: "niftyauto", label: "NIFTY Auto", symbol: "^CNXAUTO" },
-    { key: "niftyfmcg", label: "NIFTY FMCG", symbol: "^CNXFMCG" },
-    { key: "niftypharma", label: "NIFTY Pharma", symbol: "^CNXPHARMA" },
-    { key: "niftymetal", label: "NIFTY Metal", symbol: "^CNXMETAL" },
-    { key: "niftymedia", label: "NIFTY Media", symbol: "^CNXMEDIA" },
-    { key: "niftyrealty", label: "NIFTY Realty", symbol: "^CNXREALTY" },
-    { key: "niftyenergy", label: "NIFTY Energy", symbol: "^CNXENERGY" },
-    { key: "niftypsubank", label: "NIFTY PSU Bank", symbol: "^CNXPSUBANK" },
-    { key: "niftyipo", label: "NIFTY IPO", symbol: "^CNXIPO" }
-  ];
   const SETTINGS_KEY = "nseCharts.settings";
   const INVALID_SYMBOLS = new Set(["DUMMYHEG"]);
   const SYNC_STORE_KEY = "nseCharts.symbolSync";
@@ -116,10 +97,6 @@
   let SETTINGS = loadSettings();
   let resizeObserver = null;
   let activeView = "stocks";
-  const marketIndexCharts = {};
-  const marketIndexRequestIds = {};
-  const marketIndexLoads = {};
-  const loadedMarketIndexes = new Set();
 
   /* ---------------------------------------------------------
      2. Boot
@@ -629,10 +606,7 @@
   });
 
   $("#refreshBtn").on("click", function () {
-    if (activeView === "markets") {
-      loadedMarketIndexes.clear();
-      loadMarketIndexCharts(true);
-    } else if (currentStock) {
+    if (currentStock) {
       resetChartLayout();
       setSyncStatus(currentStock.s, "pending");
       syncSymbols([currentStock]).then(() => loadSymbol(currentStock));
@@ -760,94 +734,8 @@
           drawRsiDivergences(tf.key);
         }
       });
-      resizeAuxiliaryCharts();
     });
     TIMEFRAMES.forEach((tf) => resizeObserver.observe(document.getElementById(`host-${tf.key}`)));
-  }
-
-  function ensureAuxiliaryCharts() {
-    MARKET_INDEXES.forEach((index) => {
-      if (marketIndexCharts[index.key]) return;
-      const host = document.getElementById(`indexChartHost-${index.key}`);
-      const chart = LightweightCharts.createChart(host, {
-        ...chartOptions(),
-        width: host.clientWidth,
-        height: host.clientHeight
-      });
-      const series = chart.addCandlestickSeries(candleColors());
-      series.applyOptions({ priceLineVisible: false, lastValueVisible: true });
-      marketIndexCharts[index.key] = { chart, series, host };
-      resizeObserver.observe(host);
-    });
-  }
-
-  function resizeAuxiliaryCharts() {
-    const chartsToResize = Object.values(marketIndexCharts).map((entry) => [entry.host, entry.chart]);
-    chartsToResize.forEach(([host, chart]) => {
-      if (host && chart && host.clientWidth > 0 && host.clientHeight > 0) {
-        chart.applyOptions({ width: host.clientWidth, height: host.clientHeight });
-      }
-    });
-  }
-
-  async function loadMarketIndexChart(index, forceReload = false) {
-    ensureAuxiliaryCharts();
-    if (!forceReload && marketIndexLoads[index.key]) return marketIndexLoads[index.key];
-    const requestId = marketIndexRequestIds[index.key] = (marketIndexRequestIds[index.key] || 0) + 1;
-    const { chart, series } = marketIndexCharts[index.key];
-    const status = $(`#indexChartStatus-${index.key}`);
-    status.text(`Loading ${index.label} daily data…`);
-    if (!forceReload && loadedMarketIndexes.has(index.key)) {
-      status.text(`${index.label} · Daily · Yahoo Finance`);
-      return;
-    }
-
-    const load = (async () => {
-      try {
-        const source = DataSources.get(SETTINGS.dataSource);
-        const interval = source.mapInterval("D");
-        const url = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(index.symbol)}&interval=${encodeURIComponent(interval)}&range=1y`;
-        const { promise } = fetchWithControllerProxy(url);
-        const json = await promise;
-        if (requestId !== marketIndexRequestIds[index.key]) return;
-        const candles = source.parseCandles(json);
-        if (!candles.length) throw new Error(extractYahooError(json) || "No daily candles returned");
-        series.setData(candles.map((bar) => ({
-          time: bar.time,
-          open: bar.open,
-          high: bar.high,
-          low: bar.low,
-          close: bar.close
-        })));
-        chart.timeScale().fitContent();
-        loadedMarketIndexes.add(index.key);
-        status.text(`${index.label} · Daily · ${candles.length} sessions`);
-      } catch (error) {
-        if (requestId !== marketIndexRequestIds[index.key]) return;
-        loadedMarketIndexes.delete(index.key);
-        status.text(`Could not load ${index.label}: ${error.message}`);
-      }
-    })();
-    marketIndexLoads[index.key] = load;
-    try {
-      await load;
-    } finally {
-      if (marketIndexLoads[index.key] === load) delete marketIndexLoads[index.key];
-    }
-  }
-
-  function loadMarketIndexCharts(forceReload = false) {
-    ensureAuxiliaryCharts();
-    const queue = MARKET_INDEXES.filter((index) =>
-      forceReload || (!loadedMarketIndexes.has(index.key) && !marketIndexLoads[index.key]));
-    let nextIndex = 0;
-    const worker = async () => {
-      while (nextIndex < queue.length) {
-        const index = queue[nextIndex++];
-        await loadMarketIndexChart(index, forceReload);
-      }
-    };
-    return Promise.all(Array.from({ length: Math.min(2, queue.length) }, () => worker()));
   }
 
   function cssVar(name, fallback) {
@@ -1525,10 +1413,6 @@ function candleColors() {
       c.rsiSeries.applyOptions({ color: cssVar("--rsi-line") });
       c.macdLine.applyOptions({ color: cssVar("--macd-line") });
       c.macdSignal.applyOptions({ color: cssVar("--macd-signal") });
-    });
-    Object.values(marketIndexCharts).forEach(({ chart, series }) => {
-      chart.applyOptions(chartOptions());
-      series.applyOptions(candleColors());
     });
     applyAxisMode();
     rerenderAllFromCache();
@@ -2398,11 +2282,6 @@ function candleColors() {
       }
     });
     $("#scrim").on("click", closeSidebarOnMobile);
-    $("#stockChartsTab").on("click", () => setActiveView("stocks"));
-    $("#marketsTab").on("click", () => {
-      setActiveView("markets");
-      loadMarketIndexCharts();
-    });
     $("#analysisBtn").on("click", function () {
       const showingAnalysis = activeView === "analysis";
       setAnalysisView(!showingAnalysis);
@@ -2456,23 +2335,11 @@ function candleColors() {
     activeView = view;
     $("#stockChartView").toggle(view === "stocks");
     $("#analysisView").toggleClass("show", view === "analysis");
-    $("#marketsView").toggleClass("show", view === "markets");
-    $("#stockChartsTab, #marketsTab").each(function () {
-      const active = $(this).attr("id") === ({
-        stocks: "stockChartsTab",
-        markets: "marketsTab"
-      }[view]);
-      $(this).toggleClass("active", active).attr("aria-selected", String(active));
-    });
     $("#analysisBtn").toggleClass("active", view === "analysis").attr({
       "aria-pressed": String(view === "analysis"),
       title: view === "analysis" ? "Show charts" : "Show analysis table",
       "aria-label": view === "analysis" ? "Show charts" : "Show analysis table"
     });
-    if (view === "markets") {
-      ensureAuxiliaryCharts();
-      resizeAuxiliaryCharts();
-    }
   }
 
   function initPopoverTabs() {

@@ -609,18 +609,6 @@ kbd{
   align-items:center;
   gap:6px;
 }
-.view-tabs{ display:flex; align-items:center; gap:3px; }
-.view-tab{
-  padding:5px 7px;
-  border:1px solid var(--border);
-  border-radius:5px;
-  background:var(--panel-alt);
-  color:var(--text-dim);
-  font:600 9px var(--font-mono);
-  white-space:nowrap;
-  cursor:pointer;
-}
-.view-tab:hover,.view-tab.active{ border-color:var(--amber); color:var(--amber); }
 .topbar-right .topbar-select{
   background:var(--panel-alt);
   border:1px solid var(--border);
@@ -659,16 +647,6 @@ kbd{
 .analysis-view{ display:none; height:100%; overflow:auto; }
 .analysis-view.show{ display:block; }
 .stock-chart-view{ height:100%; }
-.markets-view{ display:none; padding:12px 14px 24px; }
-.markets-view.show{ display:block; }
-.market-view-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:4px 2px 10px; border-bottom:1px solid var(--border); }
-.market-view-head h2{ margin:3px 0 0; font-size:21px; }
-.market-view-description{ margin:5px 0 0; color:var(--text-faint); font-size:11px; }
-.market-chart-status{ min-height:22px; padding:7px 2px; color:var(--text-dim); font:10px var(--font-mono); }
-.market-charts-grid{ display:grid; grid-template-columns:minmax(0, 1fr); gap:10px; padding-top:10px; }
-.market-chart-card{ min-width:0; padding:8px 10px 10px; overflow:hidden; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--panel-shadow); }
-.market-chart-card h3{ margin:0; color:var(--text); font:700 12px var(--font-mono); }
-.market-chart-host{ width:100%; height:260px; }
 .analysis-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; border-bottom:1px solid var(--border); padding:10px; }
 .analysis-head h2{ margin:3px 0 0; font-size:22px; letter-spacing:-.02em; }
 .analysis-kicker{ color:var(--amber); font:700 10px var(--font-mono); letter-spacing:.08em; }
@@ -1270,11 +1248,6 @@ kbd{
   .price-block{ min-width:80px; }
   .topbar{ padding:0 9px; }
   .topbar-right{ gap:3px; }
-  .view-tabs{ gap:2px; }
-  .view-tab{ padding:5px 4px; font-size:8px; }
-  .markets-view{ padding:9px 7px 18px; }
-  .market-view-head h2{ font-size:17px; }
-  .market-chart-host{ height:230px; }
   .grid-wrap{ padding:4px; }
   .chart-grid{ gap:4px; }
   .chart-panel{ min-height:145px; }
