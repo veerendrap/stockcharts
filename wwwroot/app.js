@@ -71,7 +71,6 @@
     },
     signalMode: [], // [] means all; otherwise an array of selected signal categories
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
-    useProxy: false, // Using controller proxy, so this is always false
     visible: { M: true, W: true, D: true, H: false },
     lastSelectedSymbol: null
   };
@@ -1109,7 +1108,6 @@ function candleColors() {
     $("#mfiToggle").prop("checked", SETTINGS.mfiEnabled);
     $("#patternsToggle").prop("checked", SETTINGS.patternsEnabled);
     $("#niftyToggle").prop("checked", SETTINGS.autoLoadNifty);
-    $("#proxyToggle").prop("checked", SETTINGS.useProxy);
     TIMEFRAMES.forEach((tf) => {
       $(`.panel-toggle[data-tf="${tf.key}"]`).prop("checked", !!SETTINGS.visible[tf.key]);
     });
@@ -1267,14 +1265,6 @@ function candleColors() {
         SETTINGS.lastSelectedSymbol = null;
       }
       saveSettings();
-    });
-
-    $("#proxyToggle").on("change", function () {
-      SETTINGS.useProxy = $(this).is(":checked");
-      saveSettings();
-      // Cached data doesn't need to change, but any in-flight requests were
-      // started under the old mode — cleanest to just re-fetch fresh.
-      if (currentStock) loadSymbol(currentStock);
     });
 
     $(".panel-toggle").on("change", function () {
