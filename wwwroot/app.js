@@ -69,7 +69,7 @@
       breakoutProbability: 60,
       aboveSma: { D: false, W: false, M: false }
     },
-    signalMode: "all", // "all" | "signalBuy" | "signalWatch" | "signalAvoid"
+    signalMode: [], // [] means all; otherwise an array of selected signal categories
     dataSource: "yahoo", // see datasources.js — the only currently-functional free source
     useProxy: false, // Using controller proxy, so this is always false
     visible: { M: true, W: true, D: true, H: false },
@@ -119,7 +119,7 @@
     // local server required.
     $("#sortSelect").val(SETTINGS.sortMode || "change");
     $("#indexSelect").val(SETTINGS.indexUniverse || "nifty500");
-    $("#signalSelect").val(SETTINGS.signalMode || "all");
+    bindSignalValues();
     updateFilterUI();
     $("#chartColumnsSelect").val(String(SETTINGS.chartColumns || 0));
     const fallbackData = window.STOCKS_DATA || [];
@@ -318,15 +318,14 @@
     return $("<div>").text(str || "").html();
   }
 
-  function getSignalMode() {
-    return $("#signalSelect").val() || SETTINGS.signalMode || "all";
+  function getSignalModes() {
+    return Array.isArray(SETTINGS.signalMode) ? SETTINGS.signalMode : [];
   }
 
   function updateListMeta() {
     const total = STOCKS.length;
     const query = $("#searchInput").val().trim();
-    const signal = getSignalMode();
-    const hasCriteria = query.length > 0 || activeFilterLabels().length > 0 || signal !== "all";
+    const hasCriteria = query.length > 0 || activeFilterLabels().length > 0;
     $("#listMeta").text(hasCriteria ? `${filtered.length} of ${total}` : `${total} symbols`);
     updateSyncSummary();
   }
@@ -429,16 +428,20 @@
     return true;
   }
 
-  function matchesSignal(stock, signal) {
-    if (!signal || signal === "all") return true;
+  function matchesSignal(stock, signals) {
+    if (!signals.length) return true;
     if (!window.StockPrediction || typeof StockPrediction.getSignal !== "function") return false;
-    const expected = signal === "signalBuy" ? "BUY / HOLD" : signal === "signalWatch" ? "WATCH" : "AVOID";
-    return StockPrediction.getSignal(stock.s, quoteCache) === expected;
+    const expected = {
+      signalBuy: "BUY / HOLD",
+      signalWatch: "WATCH",
+      signalAvoid: "AVOID"
+    };
+    return signals.some((signal) => StockPrediction.getSignal(stock.s, quoteCache) === expected[signal]);
   }
 
   function refreshFilteredList() {
     const q = $("#searchInput").val().trim().toUpperCase();
-    const signal = getSignalMode();
+    const signals = getSignalModes();
 
     let next = STOCKS;
 
@@ -448,8 +451,8 @@
 
     next = next.filter(matchesFilters);
 
-    if (signal !== "all") {
-      next = next.filter((s) => matchesSignal(s, signal));
+    if (signals.length) {
+      next = next.filter((s) => matchesSignal(s, signals));
     }
 
     filtered = applySort(next);
@@ -489,8 +492,23 @@
     resortList();
   });
 
-  $("#signalSelect").on("change", function () {
-    SETTINGS.signalMode = $(this).val() || "all";
+  $("#signalAll").on("change", function () {
+    if ($(this).prop("checked")) {
+      $(".signal-option").prop("checked", false);
+      SETTINGS.signalMode = [];
+    } else {
+      $(".signal-option").prop("checked", true);
+      SETTINGS.signalMode = $(".signal-option").map(function () { return this.value; }).get();
+    }
+    saveSettings();
+    updateFilterUI();
+    refreshFilteredList();
+  });
+
+  $(".signal-option").on("change", function () {
+    const signals = $(".signal-option:checked").map(function () { return this.value; }).get();
+    SETTINGS.signalMode = signals;
+    $("#signalAll").prop("checked", signals.length === 0 || signals.length === 3);
     saveSettings();
     updateFilterUI();
     refreshFilteredList();
@@ -1036,6 +1054,7 @@ function candleColors() {
       saved = raw ? JSON.parse(raw) : null;
     } catch (e) { saved = null; }
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved || {});
+    merged.signalMode = normalizeSignalModes(merged.signalMode);
     merged.visible = Object.assign({}, DEFAULT_SETTINGS.visible, (saved && saved.visible) || {});
     merged.filters = Object.assign({}, DEFAULT_SETTINGS.filters, (saved && saved.filters) || {});
     merged.filters.aboveSma = Object.assign({}, DEFAULT_SETTINGS.filters.aboveSma,
@@ -1055,7 +1074,15 @@ function candleColors() {
         merged.signalMode = legacyMode;
       }
     }
+    merged.signalMode = normalizeSignalModes(merged.signalMode);
     return merged;
+  }
+
+  function normalizeSignalModes(value) {
+    const validSignals = ["signalBuy", "signalWatch", "signalAvoid"];
+    if (!value || value === "all") return [];
+    const values = Array.isArray(value) ? value : [value];
+    return [...new Set(values.filter((signal) => validSignals.includes(signal)))];
   }
 
   function saveSettings() {
@@ -1333,8 +1360,7 @@ function candleColors() {
       SETTINGS.filters = Object.assign({}, DEFAULT_SETTINGS.filters, {
         aboveSma: Object.assign({}, DEFAULT_SETTINGS.filters.aboveSma)
       });
-      SETTINGS.signalMode = "all";
-      $("#signalSelect").val("all");
+      SETTINGS.signalMode = [];
       bindFilterValues();
       saveSettings();
       updateFilterUI();
@@ -1351,11 +1377,20 @@ function candleColors() {
     $("#highFilterEnabled").prop("checked", filters.highEnabled);
     $("#highFilterSource").val(filters.highSource);
     $("#highFilterPercent").val(filters.highPercent);
+    bindSignalValues();
     $("#breakoutFilterEnabled").prop("checked", filters.breakoutEnabled);
     $("#breakoutProbability").val(filters.breakoutProbability);
     $("#smaDailyFilter").prop("checked", filters.aboveSma.D);
     $("#smaWeeklyFilter").prop("checked", filters.aboveSma.W);
     $("#smaMonthlyFilter").prop("checked", filters.aboveSma.M);
+  }
+
+  function bindSignalValues() {
+    const signals = getSignalModes();
+    $(".signal-option").each(function () {
+      $(this).prop("checked", signals.includes(this.value));
+    });
+    $("#signalAll").prop("checked", signals.length === 0 || signals.length === 3);
   }
 
   function activeFilterLabels() {
@@ -1372,9 +1407,14 @@ function candleColors() {
     if (filters.aboveSma.D) labels.push("Above 5 SMA (D)");
     if (filters.aboveSma.W) labels.push("Above 5 SMA (W)");
     if (filters.aboveSma.M) labels.push("Above 5 SMA (M)");
-    const signal = getSignalMode();
-    if (signal !== "all") {
-      labels.push(signal === "signalBuy" ? "Signal: BUY / HOLD" : signal === "signalWatch" ? "Signal: WATCH" : "Signal: AVOID");
+    const signals = getSignalModes();
+    if (signals.length && signals.length < 3) {
+      const signalLabels = {
+        signalBuy: "BUY / HOLD",
+        signalWatch: "WATCH",
+        signalAvoid: "AVOID"
+      };
+      labels.push(`Signal: ${signals.map((signal) => signalLabels[signal]).join(", ")}`);
     }
     return labels;
   }

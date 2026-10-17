@@ -213,13 +213,11 @@
     <div class="settings-body">
       <div class="settings-section">
         <h4>Signal</h4>
-        <div class="filter-control-row">
-          <select id="signalSelect" class="settings-select" title="Filter symbols by signal" aria-label="Signal filter">
-            <option value="all">All signals</option>
-            <option value="signalBuy">BUY / HOLD</option>
-            <option value="signalWatch">WATCH</option>
-            <option value="signalAvoid">AVOID</option>
-          </select>
+        <div class="signal-filter-options">
+          <label class="filter-check-row"><input type="checkbox" id="signalAll"><span>All signals</span></label>
+          <label class="filter-check-row"><input type="checkbox" class="signal-option" value="signalBuy"><span>BUY / HOLD</span></label>
+          <label class="filter-check-row"><input type="checkbox" class="signal-option" value="signalWatch"><span>WATCH</span></label>
+          <label class="filter-check-row"><input type="checkbox" class="signal-option" value="signalAvoid"><span>AVOID</span></label>
         </div>
       </div>
       <div class="settings-section">
