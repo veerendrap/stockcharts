@@ -701,12 +701,12 @@
       const levelsHost = panel[0].querySelector(".prediction-levels");
       const chart = LightweightCharts.createChart(host, chartOptions());
 
-      const series = chart.addCandlestickSeries(candleColors());
-
       const volSeries = chart.addHistogramSeries({
         priceFormat: { type: "volume" },
         priceScaleId: "" // implicit overlay scale, no visible axis
       });
+
+      const series = chart.addCandlestickSeries(candleColors());
 
       const smaSeries = chart.addLineSeries({
         color: cssVar("--sma"), lineWidth: 1,
@@ -931,30 +931,30 @@ function candleColors() {
     if (oscillatorOn && macdOn) {
       return {
         price: { top: 0.03, bottom: 0.55 },
-        vol:   { top: 0.47, bottom: 0.45 },
-        rsi:   { top: 0.58, bottom: 0.22 },
-        macd:  { top: 0.80, bottom: 0.0 }
+        vol:   { top: 0.38, bottom: 0.28 },
+        rsi:   { top: 0.60, bottom: 0.20 },
+        macd:  { top: 0.82, bottom: 0.0 }
       };
     }
     if (oscillatorOn && !macdOn) {
       return {
         price: { top: 0.03, bottom: 0.42 },
-        vol:   { top: 0.60, bottom: 0.32 },
-        rsi:   { top: 0.70, bottom: 0.0 },
+        vol:   { top: 0.42, bottom: 0.20 },
+        rsi:   { top: 0.75, bottom: 0.0 },
         macd:  { top: 1, bottom: 0 }
       };
     }
     if (!oscillatorOn && macdOn) {
       return {
         price: { top: 0.03, bottom: 0.42 },
-        vol:   { top: 0.60, bottom: 0.32 },
+        vol:   { top: 0.42, bottom: 0.20 },
         rsi:   { top: 1, bottom: 0 },
-        macd:  { top: 0.70, bottom: 0.0 }
+        macd:  { top: 0.75, bottom: 0.0 }
       };
     }
     return {
-      price: { top: 0.05, bottom: 0.22 },
-      vol:   { top: 0.82, bottom: 0.0 },
+      price: { top: 0.05, bottom: 0.28 },
+      vol:   { top: 0.40, bottom: 0.0 },
       rsi:   { top: 1, bottom: 0 },
       macd:  { top: 1, bottom: 0 }
     };
