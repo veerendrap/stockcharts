@@ -41,7 +41,7 @@
     density: "compact",
     barCount: 60,
     priceDecimals: 0,
-    axisMode: "percent", // "percent" (default: right axis shows % change) | "price"
+    axisMode: "price", // "price" (default) | "percent" change
     percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
     analysisPoints: 150, // history depth used for win-rate/analysis (display still shows barCount)
     smaEnabled: true,
@@ -856,7 +856,7 @@ function candleColors() {
     return SETTINGS.axisMode === "percent" && SETTINGS.percentBase === "current";
   }
 
-  // Right-axis format: "% change" by default (configurable to raw price).
+  // Right-axis format: raw price by default (configurable to % change).
   function candleSeriesFormat() {
     return SETTINGS.axisMode === "price"
       ? priceFormatForDecimals(SETTINGS.priceDecimals)
@@ -872,21 +872,22 @@ function candleColors() {
       const mode = SETTINGS.axisMode === "price" || tx
         ? LightweightCharts.PriceScaleMode.Normal
         : LightweightCharts.PriceScaleMode.Percentage;
-      // v4.1.3 reads priceScale.%_options — localization.percentageFormatter /
-      // localization.priceFormatter are read live on every format call, so this
-      // makes the axis honor the decimals setting (the built-in % formatter is
-      // fixed at 2dp). In the transform mode the data is already % deviations,
-      // so the NORMAL scale's tick formatter appends the '%' instead.
+      // Keep transformed % values on a custom series formatter so switching
+      // back to raw prices cannot leave a stale chart-level price formatter.
       c.series.applyOptions({
-        priceFormat: tx || SETTINGS.axisMode === "price"
-          ? priceFormatForDecimals(SETTINGS.priceDecimals)
+        priceFormat: tx
+          ? {
+            type: "custom",
+            minMove: 1 / Math.pow(10, d),
+            formatter: (v) => `${v.toFixed(d)}%`
+          }
           : candleSeriesFormat()
       });
-      c.chart.applyOptions({
-        localization: tx
-          ? { priceFormatter: (v) => `${v.toFixed(d)}%` }
-          : { percentageFormatter: (v) => `${v.toFixed(d)}%` }
-      });
+      if (!tx) {
+        c.chart.applyOptions({
+          localization: { percentageFormatter: (v) => `${v.toFixed(d)}%` }
+        });
+      }
       c.series.priceScale().applyOptions({ mode });
     });
   }
