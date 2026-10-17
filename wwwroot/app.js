@@ -931,7 +931,7 @@ function candleColors() {
     if (oscillatorOn && macdOn) {
       return {
         price: { top: 0.03, bottom: 0.55 },
-        vol:   { top: 0.38, bottom: 0.28 },
+        vol:   { top: 0.465, bottom: 0.28 },
         rsi:   { top: 0.60, bottom: 0.20 },
         macd:  { top: 0.82, bottom: 0.0 }
       };
@@ -939,7 +939,7 @@ function candleColors() {
     if (oscillatorOn && !macdOn) {
       return {
         price: { top: 0.03, bottom: 0.42 },
-        vol:   { top: 0.42, bottom: 0.20 },
+        vol:   { top: 0.515, bottom: 0.20 },
         rsi:   { top: 0.75, bottom: 0.0 },
         macd:  { top: 1, bottom: 0 }
       };
@@ -947,14 +947,14 @@ function candleColors() {
     if (!oscillatorOn && macdOn) {
       return {
         price: { top: 0.03, bottom: 0.42 },
-        vol:   { top: 0.42, bottom: 0.20 },
+        vol:   { top: 0.515, bottom: 0.20 },
         rsi:   { top: 1, bottom: 0 },
         macd:  { top: 0.75, bottom: 0.0 }
       };
     }
     return {
       price: { top: 0.05, bottom: 0.28 },
-      vol:   { top: 0.40, bottom: 0.0 },
+      vol:   { top: 0.55, bottom: 0.0 },
       rsi:   { top: 1, bottom: 0 },
       macd:  { top: 1, bottom: 0 }
     };
