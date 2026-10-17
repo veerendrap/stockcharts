@@ -42,6 +42,67 @@ window.StockPrediction = (function () {
     };
   }
 
+  function analyzeTrendlineBreakout(bars) {
+    if (!Array.isArray(bars) || bars.length < 10) {
+      return { breakout: false, probability: null, samples: 0 };
+    }
+
+    const pivots = [];
+    const breakoutIndexes = [];
+    let previousLine = null;
+
+    for (let index = 0; index < bars.length; index++) {
+      const pivotIndex = index - 2;
+      if (pivotIndex >= 2) {
+        const pivotHigh = bars[pivotIndex].high;
+        let isSwingHigh = true;
+        for (let offset = pivotIndex - 2; offset <= pivotIndex + 2; offset++) {
+          if (offset !== pivotIndex && bars[offset].high >= pivotHigh) {
+            isSwingHigh = false;
+            break;
+          }
+        }
+        if (isSwingHigh) pivots.push({ index: pivotIndex, high: pivotHigh });
+      }
+
+      const first = pivots[pivots.length - 2];
+      const second = pivots[pivots.length - 1];
+      let line = null;
+      if (first && second && second.high < first.high && index - second.index <= 60) {
+        const slope = (second.high - first.high) / (second.index - first.index);
+        line = { firstIndex: first.index, secondIndex: second.index, slope, secondHigh: second.high };
+      }
+
+      if (line && previousLine &&
+          line.firstIndex === previousLine.firstIndex &&
+          line.secondIndex === previousLine.secondIndex &&
+          index > 0) {
+        const previousResistance = previousLine.secondHigh +
+          previousLine.slope * (index - 1 - previousLine.secondIndex);
+        const resistance = line.secondHigh + line.slope * (index - line.secondIndex);
+        if (Number.isFinite(resistance) && resistance > 0 &&
+            bars[index - 1].close <= previousResistance &&
+            bars[index].close > resistance) {
+          breakoutIndexes.push(index);
+        }
+      }
+      previousLine = line;
+    }
+
+    const latestIndex = bars.length - 1;
+    const historicalBreakouts = breakoutIndexes.filter((index) => index < latestIndex).slice(-100);
+    const positiveOutcomes = historicalBreakouts.filter((index) =>
+      bars[index + 1].close > bars[index].close
+    ).length;
+    const samples = historicalBreakouts.length;
+
+    return {
+      breakout: breakoutIndexes.includes(latestIndex),
+      probability: samples >= 5 ? Math.round((positiveOutcomes / samples) * 100) : null,
+      samples
+    };
+  }
+
   function scoreTrend(current, sma20, sma50, rsi, momentum) {
     let score = 0;
     if (current > sma20) score++;
@@ -231,6 +292,11 @@ window.StockPrediction = (function () {
     }
     const provisional = provisionalAnalysis(quoteForSymbol(symbol, quoteMap));
     return provisional ? provisional.momentum : null;
+  }
+
+  function getTrendlineBreakout(symbol) {
+    const bars = barsCache[symbol];
+    return bars && bars.length ? analyzeTrendlineBreakout(bars) : null;
   }
 
   function provisionalAnalysis(quote) {
@@ -592,5 +658,8 @@ window.StockPrediction = (function () {
     return !!(symbol && barsCache[symbol] && barsCache[symbol].length);
   }
 
-  return { update, analyze, cacheBars, hasBars, renderUniverse, getLastAnalysis, getSignal, getMomentum };
+  return {
+    update, analyze, analyzeTrendlineBreakout, cacheBars, hasBars, renderUniverse,
+    getLastAnalysis, getSignal, getMomentum, getTrendlineBreakout
+  };
 })();

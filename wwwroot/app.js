@@ -65,6 +65,8 @@
       highEnabled: false,
       highSource: "allTimeHigh",
       highPercent: 1,
+      breakoutEnabled: false,
+      breakoutProbability: 60,
       aboveSma: { D: false, W: false, M: false }
     },
     signalMode: "all", // "all" | "signalBuy" | "signalWatch" | "signalAvoid"
@@ -238,11 +240,19 @@
       : meta && Number.isFinite(meta.changePct)
       ? `<span class="move-pill ${meta.changePct > 0 ? "up" : meta.changePct < 0 ? "down" : "flat"}">${fmtPercent(meta.changePct)}</span>`
       : "";
+    const breakout = SETTINGS.filters.breakoutEnabled && window.StockPrediction &&
+      typeof StockPrediction.getTrendlineBreakout === "function"
+      ? StockPrediction.getTrendlineBreakout(s.s)
+      : null;
+    const breakoutBadge = breakout && breakout.breakout && breakout.probability !== null
+      ? `<span class="breakout-pill" title="Historical next-day positive-close rate after ${breakout.samples} trend-line breakouts">↑ ${breakout.probability}%</span>`
+      : "";
     return (
       `<div class="stock-row" data-idx="${i}" data-sym="${s.s}">` +
       `<span class="sym-wrap">` +
       `<span class="sym sync-${syncStatus}">${s.s}</span>` +
       `${badge}` +
+      `${breakoutBadge}` +
       `</span>` +
       `<span class="sector">${escapeHtml(s.i)}</span>` +
       `</div>`
@@ -389,11 +399,14 @@
 
   function matchesFilters(stock) {
     const filters = SETTINGS.filters;
-    const active = filters.changeEnabled || filters.highEnabled || filters.aboveSma.D || filters.aboveSma.W || filters.aboveSma.M;
+    const active = filters.changeEnabled || filters.highEnabled || filters.breakoutEnabled ||
+      filters.aboveSma.D || filters.aboveSma.W || filters.aboveSma.M;
     if (!active) return true;
-    const meta = getQuoteMeta(stock);
-    if (!meta) return false;
 
+    const meta = getQuoteMeta(stock);
+    const needsQuoteMeta = filters.changeEnabled || filters.highEnabled ||
+      filters.aboveSma.D || filters.aboveSma.W || filters.aboveSma.M;
+    if (needsQuoteMeta && !meta) return false;
     if (filters.changeEnabled) {
       if (!Number.isFinite(meta.changePct)) return false;
       if (filters.changeOperator === "lt" ? meta.changePct >= filters.changeValue : meta.changePct <= filters.changeValue) return false;
@@ -407,6 +420,12 @@
     if (filters.aboveSma.D && meta.aboveSma5 !== true) return false;
     if (filters.aboveSma.W && meta.aboveSma5Weekly !== true) return false;
     if (filters.aboveSma.M && meta.aboveSma5Monthly !== true) return false;
+    if (filters.breakoutEnabled) {
+      if (!window.StockPrediction || typeof StockPrediction.getTrendlineBreakout !== "function") return false;
+      const breakout = StockPrediction.getTrendlineBreakout(stock.s);
+      if (!breakout || !breakout.breakout || breakout.probability === null ||
+          breakout.probability < filters.breakoutProbability) return false;
+    }
     return true;
   }
 
@@ -1261,6 +1280,8 @@ function candleColors() {
     $("#highFilterEnabled").prop("checked", filters.highEnabled);
     $("#highFilterSource").val(filters.highSource);
     $("#highFilterPercent").val(filters.highPercent);
+    $("#breakoutFilterEnabled").prop("checked", filters.breakoutEnabled);
+    $("#breakoutProbability").val(filters.breakoutProbability);
     $("#smaDailyFilter").prop("checked", filters.aboveSma.D);
     $("#smaWeeklyFilter").prop("checked", filters.aboveSma.W);
     $("#smaMonthlyFilter").prop("checked", filters.aboveSma.M);
@@ -1273,6 +1294,8 @@ function candleColors() {
     });
     $("#filterModal input, #filterModal select").on("input change", function () {
       const weeklyWasEnabled = SETTINGS.filters.aboveSma.W;
+      const breakoutWasEnabled = SETTINGS.filters.breakoutEnabled;
+      const probabilityValue = Number($("#breakoutProbability").val());
       SETTINGS.filters = {
         changeEnabled: $("#changeFilterEnabled").prop("checked"),
         changeOperator: $("#changeFilterOperator").val() === "lt" ? "lt" : "gt",
@@ -1280,6 +1303,9 @@ function candleColors() {
         highEnabled: $("#highFilterEnabled").prop("checked"),
         highSource: $("#highFilterSource").val() === "fiftyTwoWeekHigh" ? "fiftyTwoWeekHigh" : "allTimeHigh",
         highPercent: Math.max(0, Math.min(100, Number($("#highFilterPercent").val()) || 0)),
+        breakoutEnabled: $("#breakoutFilterEnabled").prop("checked"),
+        breakoutProbability: Math.max(0, Math.min(100,
+          Number.isFinite(probabilityValue) ? probabilityValue : DEFAULT_SETTINGS.filters.breakoutProbability)),
         aboveSma: {
           D: $("#smaDailyFilter").prop("checked"),
           W: $("#smaWeeklyFilter").prop("checked"),
@@ -1297,6 +1323,9 @@ function candleColors() {
         }
       } else if (weeklyWasEnabled && !SETTINGS.filters.aboveSma.W) {
         weeklySmaSyncPending = false;
+      }
+      if (!breakoutWasEnabled && SETTINGS.filters.breakoutEnabled && !syncInProgress) {
+        syncPendingSymbols(STOCKS);
       }
     });
 
@@ -1322,6 +1351,8 @@ function candleColors() {
     $("#highFilterEnabled").prop("checked", filters.highEnabled);
     $("#highFilterSource").val(filters.highSource);
     $("#highFilterPercent").val(filters.highPercent);
+    $("#breakoutFilterEnabled").prop("checked", filters.breakoutEnabled);
+    $("#breakoutProbability").val(filters.breakoutProbability);
     $("#smaDailyFilter").prop("checked", filters.aboveSma.D);
     $("#smaWeeklyFilter").prop("checked", filters.aboveSma.W);
     $("#smaMonthlyFilter").prop("checked", filters.aboveSma.M);
@@ -1337,6 +1368,7 @@ function candleColors() {
       const highLabel = filters.highSource === "fiftyTwoWeekHigh" ? "52W high" : "ATH";
       labels.push(`Within ${filters.highPercent}% of ${highLabel}`);
     }
+    if (filters.breakoutEnabled) labels.push(`Trend-line breakout ≥ ${filters.breakoutProbability}%`);
     if (filters.aboveSma.D) labels.push("Above 5 SMA (D)");
     if (filters.aboveSma.W) labels.push("Above 5 SMA (W)");
     if (filters.aboveSma.M) labels.push("Above 5 SMA (M)");
@@ -1354,6 +1386,8 @@ function candleColors() {
     $("#changeFilterOperator, #changeFilterValue").prop("disabled", !filters.changeEnabled);
     $("#highFilterControls").toggleClass("disabled", !filters.highEnabled);
     $("#highFilterSource, #highFilterPercent").prop("disabled", !filters.highEnabled);
+    $("#breakoutProbabilityControls").toggleClass("disabled", !filters.breakoutEnabled);
+    $("#breakoutProbability").prop("disabled", !filters.breakoutEnabled);
     $("#filterBtn").toggleClass("active", count > 0);
     $("#filterCount").text(count);
     const labels = activeFilterLabels();
@@ -2387,8 +2421,18 @@ function candleColors() {
     $("#columnInfoPopover").on("click", function (event) {
       event.stopPropagation();
     });
+    $("#trendlineInfoBtn").on("click", function (event) {
+      event.stopPropagation();
+      const isOpen = $("#trendlineInfoPopover").toggleClass("show").hasClass("show");
+      $(this).attr("aria-expanded", String(isOpen));
+    });
+    $("#trendlineInfoPopover").on("click", function (event) {
+      event.stopPropagation();
+    });
     $(document).on("click", function () {
       $("#columnInfoPopover").removeClass("show");
+      $("#trendlineInfoPopover").removeClass("show");
+      $("#trendlineInfoBtn").attr("aria-expanded", "false");
     });
     $(document).on("click", ".row-chart-btn", function (event) {
       event.preventDefault();

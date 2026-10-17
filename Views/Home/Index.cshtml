@@ -245,6 +245,22 @@
         </div>
       </div>
       <div class="settings-section">
+        <div class="filter-section-heading">
+          <h4>Trend-line breakout</h4>
+          <div class="filter-info-wrap">
+            <button type="button" class="column-info-btn filter-info-btn" id="trendlineInfoBtn" aria-label="Trend-line breakout details" aria-expanded="false" title="Trend-line breakout details">i</button>
+            <div class="column-info-popover trendline-info-popover" id="trendlineInfoPopover" role="tooltip">
+              <strong>Trend-line breakout</strong>
+              <span>Daily close crosses descending resistance from confirmed swing highs. Probability is the historical rate of a higher next-day close after matching breakouts; at least 5 past examples are required.</span>
+            </div>
+          </div>
+        </div>
+        <label class="filter-enable-row"><input type="checkbox" id="breakoutFilterEnabled"><span>Filter for bullish trend-line breakouts</span></label>
+        <div class="filter-control-row" id="breakoutProbabilityControls">
+          <label class="filter-value"><span>Minimum probability</span> <input type="number" id="breakoutProbability" class="settings-input" min="0" max="100" step="5"> <span>%</span></label>
+        </div>
+      </div>
+      <div class="settings-section">
         <h4>Above 5 SMA</h4>
         <label class="filter-check-row"><input type="checkbox" id="smaDailyFilter"><span>Daily</span></label>
         <label class="filter-check-row"><input type="checkbox" id="smaWeeklyFilter"><span>Weekly</span></label>
