@@ -27,6 +27,7 @@
   ];
 
   const SMA_PERIOD = 5;
+  const RELATIVE_VOLUME_ICON = "▂▅█";
   const RSI_PERIOD = 14;
   const MFI_PERIOD = 14;
   const MACD_FAST = 12, MACD_SLOW = 26, MACD_SIGNAL = 9;
@@ -335,6 +336,12 @@
   function getRelativeVolume(stock) {
     const meta = getQuoteMeta(stock);
     return meta && Number.isFinite(meta.relativeVolume20d) ? meta.relativeVolume20d : null;
+  }
+
+  function relativeVolumeDescription(tfKey) {
+    const timeframe = TIMEFRAMES.find((tf) => tf.key === tfKey);
+    const label = timeframe ? timeframe.label.toLowerCase() : "chart";
+    return `Latest ${label} volume divided by the average volume of the previous 20 ${label} bars`;
   }
 
   // Re-sorts whatever's currently filtered (keeps the active search intact),
@@ -735,6 +742,7 @@
         `</div>` +
         `<div class="chart-area">` +
         `<div class="chart-overlay chip-price" id="chip-price-${tf.key}"></div>` +
+        `<div class="chart-overlay chip-volume" id="chip-volume-${tf.key}"></div>` +
         `<div class="chart-overlay chip-rsi" id="chip-rsi-${tf.key}"></div>` +
         `<div class="chart-overlay chip-mfi" id="chip-mfi-${tf.key}"></div>` +
         `<div class="chart-overlay chip-macd" id="chip-macd-${tf.key}"></div>` +
@@ -847,10 +855,11 @@
       if (!param.point || !param.time || param.point.x < 0 || param.point.y < 0 || !param.seriesData) {
         $tip.hide();
         resetPriceChip(tfKey);
+        resetVolumeChip(tfKey);
         return;
       }
       const ohlc = param.seriesData.get(series);
-      if (!ohlc) { $tip.hide(); resetPriceChip(tfKey); return; }
+      if (!ohlc) { $tip.hide(); resetPriceChip(tfKey); resetVolumeChip(tfKey); return; }
 
       // In the "current price = 0%" mode the series data is % deviations, so
       // restore the raw prices for display (layout/shape is unaffected).
@@ -867,6 +876,13 @@
         const pct = ((rC - rO) / rO) * 100;
         const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
         html += `<br><span class="change-pct ${cls}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
+      }
+      const relativeVolume = relativeVolumeAtTime(tfKey, param.time);
+      if (relativeVolume !== null) {
+        html += `<br>${RELATIVE_VOLUME_ICON} <b>${relativeVolume.toFixed(1)}x</b> <small>${relativeVolumeDescription(tfKey)}</small>`;
+        $(`#chip-volume-${tfKey}`).html(`${RELATIVE_VOLUME_ICON} <b>${relativeVolume.toFixed(1)}x</b>`);
+      } else {
+        $(`#chip-volume-${tfKey}`).empty();
       }
       if (window.CandlePatternDetector) {
         const pattern = CandlePatternDetector.getNameAt(tfKey, param.time);
@@ -1032,6 +1048,7 @@ function candleColors() {
     // scales, so the library's built-in pane labels aren't usable.)
     const overlay = (id, m) => $(`#${id}-${tfKey}`).css("top", `${Math.round(m.top * 100)}%`);
     overlay("chip-price", layout.price);
+    overlay("chip-volume", layout.vol);
     overlay("chip-rsi", layout.rsi);
     overlay("chip-mfi", layout.rsi);
     overlay("chip-macd", layout.macd);
@@ -1818,6 +1835,10 @@ function candleColors() {
     const last = bars[bars.length - 1];
     const prev = bars.length > 1 ? bars[bars.length - 2] : last;
     $(`#chip-price-${tfKey}`).html(chipPriceHTML(last.open, last.close));
+    const relativeVolume = computeRelativeVolume20d(full);
+    $(`#chip-volume-${tfKey}`).html(
+      relativeVolume === null ? "" : `${RELATIVE_VOLUME_ICON} <b>${relativeVolume.toFixed(1)}x</b>`
+    );
 
     const $chipRsi = $(`#chip-rsi-${tfKey}`);
     if (SETTINGS.rsiEnabled && rsiWin.length) {
@@ -2080,16 +2101,23 @@ function candleColors() {
     return out;
   }
 
-  function computeRelativeVolume20d(bars) {
-    if (bars.length < 21) return null;
-    const latestVolume = bars[bars.length - 1].volume;
-    const priorVolumes = bars.slice(-21, -1).map((bar) => bar.volume);
+  function computeRelativeVolume20d(bars, index = bars.length - 1) {
+    if (index < 20 || index >= bars.length) return null;
+    const latestVolume = bars[index].volume;
+    const priorVolumes = bars.slice(index - 20, index).map((bar) => bar.volume);
     if (!Number.isFinite(latestVolume) || latestVolume <= 0 ||
         priorVolumes.some((volume) => !Number.isFinite(volume) || volume <= 0)) {
       return null;
     }
     const averageVolume = priorVolumes.reduce((sum, volume) => sum + volume, 0) / priorVolumes.length;
     return averageVolume > 0 ? latestVolume / averageVolume : null;
+  }
+
+  function relativeVolumeAtTime(tfKey, time) {
+    const bars = candleCache[tfKey];
+    if (!bars) return null;
+    const index = bars.findIndex((bar) => bar.time === time);
+    return index < 0 ? null : computeRelativeVolume20d(bars, index);
   }
 
   // Wilder-smoothed ATR — TR series first, then the same running average
@@ -2279,6 +2307,14 @@ function candleColors() {
     const $chip = $(`#chip-price-${tfKey}`);
     if (lastBar) $chip.html(chipPriceHTML(lastBar.open, lastBar.close));
     else $chip.empty();
+  }
+
+  function resetVolumeChip(tfKey) {
+    const bars = candleCache[tfKey];
+    const relativeVolume = bars ? computeRelativeVolume20d(bars) : null;
+    $(`#chip-volume-${tfKey}`).html(
+      relativeVolume === null ? "" : `${RELATIVE_VOLUME_ICON} <b>${relativeVolume.toFixed(1)}x</b>`
+    );
   }
 
   function fmtPercent(n) {

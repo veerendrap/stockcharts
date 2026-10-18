@@ -911,7 +911,6 @@ kbd{
   color:var(--text-dim);
   font-family:var(--font-mono);
 }
-
 .chart-area{
   flex:1;
   position:relative;
@@ -940,6 +939,7 @@ kbd{
 .chart-overlay .chip-dir.down{ color:var(--down); }
 .chart-overlay .chip-dir.flat{ color:var(--text-dim); }
 .chart-overlay.chip-rsi{ left:6px; }
+.chart-overlay.chip-volume{ color:var(--text-dim); }
 .chart-overlay.chip-mfi{ left:6px; color:var(--mfi-line); }
 .chart-overlay.chip-macd{ left:6px; }
 
@@ -1272,6 +1272,18 @@ kbd{
   grid-template-columns:1fr 1fr;
   gap:8px;
 }
+.visible-chart-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:5px;
+}
+.visible-chart-grid .checkbox-item{
+  justify-content:center;
+  gap:4px;
+  padding:6px 4px;
+}
+.visible-chart-grid .checkbox-item input{ flex:0 0 14px; }
+.visible-chart-grid .checkbox-item span{ font-size:10px; }
+.visible-chart-grid .checkbox-item .chip-dot{ display:none; }
 .checkbox-item{
   display:flex;
   align-items:center;
