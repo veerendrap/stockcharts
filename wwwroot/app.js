@@ -216,13 +216,26 @@
      3. Sidebar list
      --------------------------------------------------------- */
 
+  function canAddCustomSymbol(query) {
+    const symbol = String(query || "").trim().toUpperCase();
+    const knownStocks = STOCKS.concat(Array.isArray(window.STOCKS_DATA) ? window.STOCKS_DATA : []);
+    return symbol.length >= 3 &&
+      !INVALID_SYMBOLS.has(symbol) &&
+      !knownStocks.some((stock) => String(stock.s || "").trim().toUpperCase() === symbol);
+  }
+
   function renderList(list, query) {
     const $list = $("#stockList");
-    $("#addSymbolBtn").toggleClass("visible", !!query && !list.length);
+    const canAdd = canAddCustomSymbol(query);
+    $("#addSymbolBtn").toggleClass("visible", !list.length && canAdd);
     if (!list.length) {
       $list.html(
         query
-          ? `<div class="empty-hint">No match for <b>${escapeHtml(query)}</b>.<br>Click <b class="add-glyph">+</b> to add it as a ticker symbol.</div>`
+          ? query.length < 3
+            ? `<div class="empty-hint">Type at least 3 characters to add a ticker.</div>`
+            : canAdd
+              ? `<div class="empty-hint">No match for <b>${escapeHtml(query)}</b>.<br>Click <b class="add-glyph">+</b> to add it as a ticker symbol.</div>`
+              : `<div class="empty-hint">No match for <b>${escapeHtml(query)}</b>.</div>`
           : `<div class="empty-hint">No symbols match your search.</div>`
       );
       return;
@@ -441,17 +454,26 @@
   function refreshFilteredList() {
     const q = $("#searchInput").val().trim().toUpperCase();
     const signals = getSignalModes();
+    const searching = q.length >= 3;
 
-    let next = STOCKS;
+    let next = searching
+      ? STOCKS.concat(Array.isArray(window.STOCKS_DATA) ? window.STOCKS_DATA : [])
+      : STOCKS;
 
-    if (q) {
+    if (searching) {
+      const seen = new Set();
+      next = next.filter((stock) => {
+        const symbol = String(stock.s || "").trim().toUpperCase();
+        if (!symbol || seen.has(symbol)) return false;
+        seen.add(symbol);
+        return true;
+      });
       next = next.filter((s) => s.s.toUpperCase().includes(q) || s.n.toUpperCase().includes(q));
-    }
-
-    next = next.filter(matchesFilters);
-
-    if (signals.length) {
-      next = next.filter((s) => matchesSignal(s, signals));
+    } else {
+      next = next.filter(matchesFilters);
+      if (signals.length) {
+        next = next.filter((s) => matchesSignal(s, signals));
+      }
     }
 
     filtered = applySort(next);
@@ -521,7 +543,7 @@
     if (!q) return;
     if (filtered.length > 0) {
       selectByFilteredIndex(0);
-    } else {
+    } else if (canAddCustomSymbol(q)) {
       loadCustomSymbol(q);
     }
   });
@@ -530,7 +552,7 @@
   // clicking it adds the query as a raw ticker and loads its charts + analysis.
   $("#addSymbolBtn").on("click", function () {
     const q = $("#searchInput").val().trim().toUpperCase();
-    if (!q) return;
+    if (!canAddCustomSymbol(q)) return;
     loadCustomSymbol(q);
     $(this).removeClass("visible");
   });
@@ -559,7 +581,7 @@
   }
 
   function loadCustomSymbol(q) {
-    if (INVALID_SYMBOLS.has(String(q || "").trim().toUpperCase())) return;
+    if (!canAddCustomSymbol(q)) return;
     activeIndex = -1;
     $(".stock-row, .pinned-row").removeClass("active");
     setAnalysisView(false);

@@ -256,14 +256,16 @@ html:fullscreen .app{
 .add-symbol-btn{
   display:none;
   flex:0 0 auto;
-  width:22px;
   height:22px;
-  border-radius:50%;
-  border:1px solid var(--border);
-  background:var(--panel-alt);
-  color:var(--text);
-  font-size:16px;
+  padding:0 8px;
+  border:1px solid var(--amber);
+  border-radius:5px;
+  background:var(--amber-soft);
+  color:var(--amber);
+  font-size:11px;
+  font-weight:700;
   line-height:1;
+  white-space:nowrap;
   cursor:pointer;
 }
 .add-symbol-btn.visible{
@@ -273,8 +275,8 @@ html:fullscreen .app{
 }
 .add-symbol-btn:hover{
   border-color:var(--amber);
-  color:var(--amber);
-  background:var(--panel);
+  background:var(--amber);
+  color:var(--panel);
 }
 .add-symbol-btn:focus-visible{ outline:2px solid var(--amber); outline-offset:1px; }
 .empty-hint .add-glyph{
