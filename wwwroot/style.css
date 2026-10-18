@@ -1186,8 +1186,7 @@ kbd{
 }
 .filter-modal{ width:390px; }
 .filter-modal .settings-section{ padding:10px 0; }
-.signal-filter-options{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
-.signal-filter-options .filter-check-row:first-child{ grid-column:1 / -1; }
+.signal-filter-options,.sma-filter-options{ display:flex; flex-wrap:wrap; gap:0 12px; }
 .filter-section-heading{ display:flex; align-items:center; gap:6px; margin-bottom:9px; }
 .filter-section-heading h4{ margin:0; }
 .filter-info-wrap{ position:relative; }

@@ -245,9 +245,9 @@
       <div class="settings-section">
         <h4>Recent high touch</h4>
         <div class="recent-high-filter-row" id="recentHighFilterControls">
-          <label class="filter-enable-row"><input type="checkbox" id="recentHighFilterEnabled"><span>Touch</span></label>
+          <label class="filter-enable-row"><input type="checkbox" id="recentHighFilterEnabled" aria-label="Enable recent high touch filter"></label>
           <select id="recentHighFilterSource" class="settings-select" aria-label="Recent high type">
-            <option value="allTimeHigh">ATH</option>
+            <option value="allTimeHigh">All-time high</option>
             <option value="fiftyTwoWeekHigh">52-week high</option>
           </select>
           <label class="filter-value"><span>Last</span> <input type="number" id="recentHighFilterMonths" class="settings-input" min="1" max="60" step="1" aria-label="Number of months"> <span>mo</span></label>
@@ -272,9 +272,11 @@
       </div>
       <div class="settings-section">
         <h4>Above 5 SMA</h4>
-        <label class="filter-check-row"><input type="checkbox" id="smaDailyFilter"><span>Daily</span></label>
-        <label class="filter-check-row"><input type="checkbox" id="smaWeeklyFilter"><span>Weekly</span></label>
-        <label class="filter-check-row"><input type="checkbox" id="smaMonthlyFilter"><span>Monthly</span></label>
+        <div class="sma-filter-options">
+          <label class="filter-check-row"><input type="checkbox" id="smaDailyFilter"><span>Daily</span></label>
+          <label class="filter-check-row"><input type="checkbox" id="smaWeeklyFilter"><span>Weekly</span></label>
+          <label class="filter-check-row"><input type="checkbox" id="smaMonthlyFilter"><span>Monthly</span></label>
+        </div>
       </div>
       <div class="filter-actions">
         <button type="button" class="filter-clear-btn" id="clearFiltersBtn">Clear filters</button>
@@ -473,7 +475,7 @@
             <div class="row-label">Candlestick patterns</div>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" id="patternsToggle" checked>
+            <input type="checkbox" id="patternsToggle">
             <span class="track"></span>
             <span class="thumb"></span>
           </label>

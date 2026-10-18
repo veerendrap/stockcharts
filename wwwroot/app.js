@@ -53,7 +53,7 @@
     mfiEnabled: false,
     supertrendEnabled: false,
     supertrendPeriod: 5,
-    patternsEnabled: true,
+    patternsEnabled: false,
     chartColumns: 0, // "0" = responsive (web 2 / mobile 1) | "1".."4" = forced columns
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
