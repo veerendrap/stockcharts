@@ -869,11 +869,14 @@
       const rL = st ? st.C + ohlc.low / st.k : ohlc.low;
       const rC = st ? st.C + ohlc.close / st.k : ohlc.close;
 
-      $(`#chip-price-${tfKey}`).html(chipPriceHTML(rO, rC));
+      const full = candleCache[tfKey];
+      const hoveredIndex = full ? full.findIndex((bar) => bar.time === param.time) : -1;
+      const previousClose = hoveredIndex > 0 ? full[hoveredIndex - 1].close : rO;
+      $(`#chip-price-${tfKey}`).html(chipPriceHTML(rC, previousClose));
 
       let html = `O <b>${fmt(rO)}</b> H <b>${fmt(rH)}</b> L <b>${fmt(rL)}</b> C <b>${fmt(rC)}</b>`;
-      if (rO != null && rC != null && rO !== 0) {
-        const pct = ((rC - rO) / rO) * 100;
+      const pct = calculateChangePercent(rC, previousClose);
+      if (pct !== null) {
         const cls = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
         html += `<br><span class="change-pct ${cls}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
       }
@@ -1834,7 +1837,8 @@ function candleColors() {
 
     const last = bars[bars.length - 1];
     const prev = bars.length > 1 ? bars[bars.length - 2] : last;
-    $(`#chip-price-${tfKey}`).html(chipPriceHTML(last.open, last.close));
+    const previousClose = full.length > 1 ? full[full.length - 2].close : last.close;
+    $(`#chip-price-${tfKey}`).html(chipPriceHTML(last.close, previousClose));
     const relativeVolume = computeRelativeVolume20d(full);
     $(`#chip-volume-${tfKey}`).html(
       relativeVolume === null ? "" : `${RELATIVE_VOLUME_ICON} <b>${relativeVolume.toFixed(1)}x</b>`
@@ -2290,14 +2294,19 @@ function candleColors() {
     $("#priceBlock").html(gapHtml || `<div class="price-meta flat">—</div>`);
   }
 
-  // Top-left price chip on the candle pane: same intraday (close-open)/open
-  // change % as the hover tooltip so both always agree. Uses RAW prices —
-  // callers must reverse the pct-axis transform first.
-  function chipPriceHTML(o, c) {
-    if (o == null || c == null || o === 0) return "";
-    const pct = ((c - o) / o) * 100;
+  function calculateChangePercent(close, previousClose) {
+    if (close == null || previousClose == null || previousClose === 0) return null;
+    return ((close - previousClose) / previousClose) * 100;
+  }
+
+  // Show the candle's change from the previous candle's close. Values passed
+  // here are raw prices; callers reverse the % axis transform before calling.
+  function chipPriceHTML(close, previousClose) {
+    if (close == null) return "";
+    const pct = calculateChangePercent(close, previousClose);
+    if (pct === null) return `<b>${fmt(close)}</b>`;
     const dir = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
-    return `<b>${fmt(c)}</b> <span class="chip-dir ${dir}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
+    return `<b>${fmt(close)}</b> <span class="chip-dir ${dir}">Δ ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%</span>`;
   }
 
   // After the crosshair leaves, point the price chip back at the last candle.
@@ -2305,7 +2314,10 @@ function candleColors() {
     const full = candleCache[tfKey];
     const lastBar = full && full.length ? full[full.length - 1] : null;
     const $chip = $(`#chip-price-${tfKey}`);
-    if (lastBar) $chip.html(chipPriceHTML(lastBar.open, lastBar.close));
+    if (lastBar) {
+      const previousClose = full.length > 1 ? full[full.length - 2].close : lastBar.close;
+      $chip.html(chipPriceHTML(lastBar.close, previousClose));
+    }
     else $chip.empty();
   }
 
