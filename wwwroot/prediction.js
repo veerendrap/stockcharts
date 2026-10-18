@@ -384,6 +384,7 @@ window.StockPrediction = (function () {
       { text: "⇄ R : R", title: "Dynamic risk:reward = avg(trendRatio, volRatio). trendRatio by trendScore [1.5,1.5,2,2,2.5,3]; volRatio by ATR% [>3%:2.5, >1.5%:2, else:1.5]" },
       { text: "✦ Trend score", title: "0-5 technical alignment: price>SMA20, SMA20>SMA50, RSI 50-72, momentum>0, price>SMA50" },
       { text: "∿ Momentum", title: "10-day price change %" },
+      { text: "◉ Relative volume (20d)", title: "Latest daily volume divided by the average volume of the previous 20 sessions" },
       { text: "⌁ SMA alignment", title: "Price vs SMA5/20/50/200: ▲ above, ▼ below, • insufficient data" }
     ];
     const wrapper = document.createElement("div");
@@ -454,6 +455,16 @@ window.StockPrediction = (function () {
       appendCell(row, formatRiskReward(analysis), false, "", "", analysis.rewardRisk);
       appendCell(row, `${analysis.trendScore}/5`, false, "", "", analysis.trendScore);
       appendCell(row, analysis.momentum == null ? "—" : percent(analysis.momentum), false, "", "", analysis.momentum);
+      const relativeVolume = quoteFor(stock, quoteMap).relativeVolume20d;
+      appendCell(
+        row,
+        Number.isFinite(relativeVolume) ? `${relativeVolume.toFixed(1)}x` : "—",
+        false,
+        "",
+        "",
+        Number.isFinite(relativeVolume) ? relativeVolume : null,
+        "Latest daily volume divided by the average volume of the previous 20 sessions"
+      );
       appendSmaCell(row, analysis);
       tbody.appendChild(row);
     });

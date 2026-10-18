@@ -465,6 +465,18 @@ kbd{
 .stock-row .move-pill.up{ background:rgba(27,143,124,.12); color:var(--up); }
 .stock-row .move-pill.down{ background:rgba(216,57,61,.12); color:var(--down); }
 .stock-row .move-pill.flat{ background:var(--panel-alt); color:var(--text-dim); }
+.stock-row .volume-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:1px 4px;
+  border-radius:999px;
+  background:var(--panel-alt);
+  color:var(--text-dim);
+  font-size:8.5px;
+  font-weight:700;
+  white-space:nowrap;
+}
 .stock-row .breakout-pill{
   display:inline-flex;
   align-items:center;
@@ -820,10 +832,12 @@ kbd{
 .card-mode .prediction-grid td:nth-child(6)::before{ content:"↗ Target %"; }
 .card-mode .prediction-grid td:nth-child(7)::before{ content:"▼ Stop loss"; }
 .card-mode .prediction-grid td:nth-child(8)::before{ content:"↘ Loss %"; }
-.card-mode .prediction-grid td:nth-child(9)::before{ content:"✦ Trend"; }
-.card-mode .prediction-grid td:nth-child(10)::before{ content:"∿ Momentum"; }
-.card-mode .prediction-grid td:nth-child(11)::before{ content:"⌁ SMA"; }
-.card-mode .prediction-grid td:nth-child(11){ grid-column:1 / -1; border:0; }
+.card-mode .prediction-grid td:nth-child(9)::before{ content:"⇄ R : R"; }
+.card-mode .prediction-grid td:nth-child(10)::before{ content:"✦ Trend"; }
+.card-mode .prediction-grid td:nth-child(11)::before{ content:"∿ Momentum"; }
+.card-mode .prediction-grid td:nth-child(12)::before{ content:"◉ Relative volume (20d)"; }
+.card-mode .prediction-grid td:nth-child(13)::before{ content:"⌁ SMA"; }
+.card-mode .prediction-grid td:nth-child(13){ grid-column:1 / -1; border:0; }
 .card-mode .prediction-grid td.sma-alignment{ display:flex; }
 .card-mode .prediction-grid td.sma-alignment::before{ align-self:center; }
 .card-mode .prediction-grid td small{ max-width:100%; }

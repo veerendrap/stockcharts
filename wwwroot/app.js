@@ -40,7 +40,7 @@
   const DEFAULT_SETTINGS = {
     theme: "light",
     density: "compact",
-    barCount: 60,
+    barCount: 90,
     priceDecimals: 0,
     axisMode: "price", // "price" (default) | "percent" change
     percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
@@ -60,7 +60,7 @@
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     indexUniverse: "nifty500",
-    sortMode: "change", // "change" | "momentum" | "symbol" | "sector"
+    sortMode: "change", // "change" | "momentum" | "volume" | "symbol" | "sector"
     filters: {
       changeEnabled: false,
       changeOperator: "gt",
@@ -258,6 +258,9 @@
       : meta && Number.isFinite(meta.changePct)
       ? `<span class="move-pill ${meta.changePct > 0 ? "up" : meta.changePct < 0 ? "down" : "flat"}">${fmtPercent(meta.changePct)}</span>`
       : "";
+    const relativeVolume = meta && Number.isFinite(meta.relativeVolume20d)
+      ? `<span class="volume-pill" title="Latest daily volume divided by the average volume of the previous 20 sessions">${meta.relativeVolume20d.toFixed(1)}x</span>`
+      : "";
     const breakout = SETTINGS.filters.breakoutEnabled && window.StockPrediction &&
       typeof StockPrediction.getTrendlineBreakout === "function"
       ? StockPrediction.getTrendlineBreakout(s.s)
@@ -270,6 +273,7 @@
       `<span class="sym-wrap">` +
       `<span class="sym sync-${syncStatus}">${s.s}</span>` +
       `${badge}` +
+      `${relativeVolume}` +
       `${breakoutBadge}` +
       `</span>` +
       `<span class="sector">${escapeHtml(s.i)}</span>` +
@@ -296,6 +300,15 @@
         if (aM !== null && bM === null) return -1;
         return a.s.localeCompare(b.s);
       });
+    } else if (mode === "volume") {
+      arr.sort((a, b) => {
+        const aVolume = getRelativeVolume(a);
+        const bVolume = getRelativeVolume(b);
+        if (aVolume !== null && bVolume !== null && aVolume !== bVolume) return bVolume - aVolume;
+        if (aVolume === null && bVolume !== null) return 1;
+        if (aVolume !== null && bVolume === null) return -1;
+        return a.s.localeCompare(b.s);
+      });
     } else if (mode === "change") {
       arr.sort((a, b) => {
         const aMeta = getQuoteMeta(a);
@@ -317,6 +330,11 @@
   function stockMomentum(stock) {
     if (!window.StockPrediction || typeof StockPrediction.getMomentum !== "function") return null;
     return StockPrediction.getMomentum(stock.s, quoteCache);
+  }
+
+  function getRelativeVolume(stock) {
+    const meta = getQuoteMeta(stock);
+    return meta && Number.isFinite(meta.relativeVolume20d) ? meta.relativeVolume20d : null;
   }
 
   // Re-sorts whatever's currently filtered (keeps the active search intact),
@@ -2062,6 +2080,18 @@ function candleColors() {
     return out;
   }
 
+  function computeRelativeVolume20d(bars) {
+    if (bars.length < 21) return null;
+    const latestVolume = bars[bars.length - 1].volume;
+    const priorVolumes = bars.slice(-21, -1).map((bar) => bar.volume);
+    if (!Number.isFinite(latestVolume) || latestVolume <= 0 ||
+        priorVolumes.some((volume) => !Number.isFinite(volume) || volume <= 0)) {
+      return null;
+    }
+    const averageVolume = priorVolumes.reduce((sum, volume) => sum + volume, 0) / priorVolumes.length;
+    return averageVolume > 0 ? latestVolume / averageVolume : null;
+  }
+
   // Wilder-smoothed ATR — TR series first, then the same running average
   // scheme used for RSI. atr[i] holds the raw TR before smoothing starts.
   function computeATR(bars, period) {
@@ -2334,12 +2364,15 @@ function candleColors() {
       if (getSyncStatus(stock.s) === "not-found") return false;
       const meta = getQuoteMeta(stock);
       const filters = SETTINGS.filters;
+      const relativeVolumeDataMissing = !meta ||
+        !Object.prototype.hasOwnProperty.call(meta, "relativeVolume20d");
       const recentHighDataMissing = filters.recentHighEnabled &&
         (!meta || meta.recentHighMonths !== filters.recentHighMonths ||
           typeof meta.recentAllTimeHighTouch !== "boolean" ||
           typeof meta.recentFiftyTwoWeekHighTouch !== "boolean");
       return !window.StockPrediction || !StockPrediction.hasBars(stock.s) || !meta ||
         !Number.isFinite(meta.allTimeHigh) ||
+        relativeVolumeDataMissing ||
         recentHighDataMissing ||
         (filters.aboveSma.D && typeof meta.aboveSma5 !== "boolean") ||
         (filters.aboveSma.W && typeof meta.aboveSma5Weekly !== "boolean") ||
@@ -2486,12 +2519,14 @@ function candleColors() {
               const sma5 = smaSeries.length ? smaSeries[smaSeries.length - 1].value : null;
               const latestDaily = candles[candles.length - 1];
               const aboveSma5 = sma5 != null && latestDaily.close > sma5;
+              const relativeVolume20d = computeRelativeVolume20d(candles);
               const meta = extractMeta(json);
               payload = {
                 price: last.close,
                 change,
                 changePct,
                 aboveSma5,
+                relativeVolume20d,
                 aboveSma5Weekly,
                 aboveSma5Monthly,
                 sma5,
