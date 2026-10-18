@@ -870,7 +870,10 @@
       const rC = st ? st.C + ohlc.close / st.k : ohlc.close;
 
       const full = candleCache[tfKey];
-      const hoveredIndex = full ? full.findIndex((bar) => bar.time === param.time) : -1;
+      const hoveredTime = normalizeChartTime(param.time);
+      const hoveredIndex = full
+        ? full.findIndex((bar) => normalizeChartTime(bar.time) === hoveredTime)
+        : -1;
       const previousClose = hoveredIndex > 0 ? full[hoveredIndex - 1].close : rO;
       $(`#chip-price-${tfKey}`).html(chipPriceHTML(rC, previousClose));
 
@@ -2297,6 +2300,15 @@ function candleColors() {
   function calculateChangePercent(close, previousClose) {
     if (close == null || previousClose == null || previousClose === 0) return null;
     return ((close - previousClose) / previousClose) * 100;
+  }
+
+  function normalizeChartTime(time) {
+    if (typeof time === "number") return time;
+    if (time && typeof time === "object" &&
+        Number.isInteger(time.year) && Number.isInteger(time.month) && Number.isInteger(time.day)) {
+      return Date.UTC(time.year, time.month - 1, time.day) / 1000;
+    }
+    return null;
   }
 
   // Show the candle's change from the previous candle's close. Values passed
