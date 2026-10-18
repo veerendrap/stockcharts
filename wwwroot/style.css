@@ -1080,6 +1080,7 @@ kbd{
   border-radius:12px;
   box-shadow:var(--shadow);
 }
+.settings-modal:not(.filter-modal){ width:400px; }
 
 .settings-head{
   display:flex;
@@ -1108,8 +1109,10 @@ kbd{
 .settings-close:hover{ color:var(--down); border-color:var(--down); }
 
 .settings-body{ padding:6px 16px 16px; }
+.settings-modal:not(.filter-modal) .settings-body{ padding:4px 14px 10px; }
 
 .settings-section{ padding:12px 0; border-bottom:1px solid var(--border); }
+.settings-modal:not(.filter-modal) .settings-section{ padding:8px 0; }
 .settings-section:last-child{ border-bottom:none; }
 .settings-section h4{
   margin:0 0 9px;
@@ -1119,6 +1122,7 @@ kbd{
   text-transform:uppercase;
   color:var(--text-faint);
 }
+.settings-modal:not(.filter-modal) .settings-section h4{ margin-bottom:6px; }
 
 .settings-row{
   display:flex;
@@ -1127,6 +1131,7 @@ kbd{
   gap:10px;
   padding:6px 0;
 }
+.settings-modal:not(.filter-modal) .settings-row{ padding:4px 0; }
 .settings-row .row-label{ font-size:12.5px; color:var(--text); font-weight:600; }
 .settings-row .row-hint{ font-size:10.5px; color:var(--text-faint); margin-top:1px; }
 
@@ -1186,6 +1191,7 @@ kbd{
 }
 .filter-modal{ width:390px; }
 .filter-modal .settings-section{ padding:10px 0; }
+.filter-modal .settings-input,.filter-modal .settings-select{ font-size:11px; }
 .signal-filter-options,.sma-filter-options{ display:flex; flex-wrap:wrap; gap:0 12px; }
 .filter-section-heading{ display:flex; align-items:center; gap:6px; margin-bottom:9px; }
 .filter-section-heading h4{ margin:0; }
@@ -1198,7 +1204,7 @@ kbd{
   align-items:center;
   gap:8px;
   color:var(--text-dim);
-  font-size:11.5px;
+  font-size:11px;
   font-weight:600;
   padding:5px 0;
   cursor:pointer;
@@ -1212,9 +1218,9 @@ kbd{
 .filter-value .settings-input{ width:74px; }
 .recent-high-filter-row{ display:flex; align-items:center; gap:7px; padding:2px 0; }
 .recent-high-filter-row .filter-enable-row{ flex-shrink:0; gap:5px; padding:0; }
-.recent-high-filter-row .settings-select{ flex:1; min-width:0; padding:5px 6px; font-size:11px; }
+.recent-high-filter-row .settings-select{ flex:1; min-width:0; padding:5px 6px; }
 .recent-high-filter-row .filter-value{ gap:3px; }
-.recent-high-filter-row .filter-value .settings-input{ width:42px; padding:5px 4px; font-size:11px; }
+.recent-high-filter-row .filter-value .settings-input{ width:42px; padding:5px 4px; }
 .recent-high-filter-row.disabled{ opacity:.45; }
 .recent-high-filter-row.disabled select,.recent-high-filter-row.disabled input{ pointer-events:none; }
 .recent-high-hint{ padding-left:22px; color:var(--text-faint); font-size:10px; line-height:1.3; }

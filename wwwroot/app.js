@@ -54,6 +54,8 @@
     supertrendEnabled: false,
     supertrendPeriod: 5,
     patternsEnabled: false,
+    winRateHeaderValuesEnabled: true,
+    winRateChartLinesEnabled: false,
     chartColumns: 0, // "0" = responsive (web 2 / mobile 1) | "1".."4" = forced columns
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
@@ -1090,6 +1092,12 @@ function candleColors() {
     merged.signalMode = normalizeSignalModes(merged.signalMode);
     merged.visible = Object.assign({}, DEFAULT_SETTINGS.visible, (saved && saved.visible) || {});
     merged.filters = Object.assign({}, DEFAULT_SETTINGS.filters, (saved && saved.filters) || {});
+    if (!saved || !Object.prototype.hasOwnProperty.call(saved, "winRateHeaderValuesEnabled")) {
+      merged.winRateHeaderValuesEnabled = DEFAULT_SETTINGS.winRateHeaderValuesEnabled;
+    }
+    if (!saved || !Object.prototype.hasOwnProperty.call(saved, "winRateChartLinesEnabled")) {
+      merged.winRateChartLinesEnabled = !!(saved && saved.winRateLevelsEnabled);
+    }
     merged.filters.aboveSma = Object.assign({}, DEFAULT_SETTINGS.filters.aboveSma,
       (saved && saved.filters && saved.filters.aboveSma) || {});
     merged.filters.recentHighMonths = normalizeRecentHighMonths(merged.filters.recentHighMonths);
@@ -1151,6 +1159,8 @@ function candleColors() {
     $("#macdToggle").prop("checked", SETTINGS.macdEnabled);
     $("#mfiToggle").prop("checked", SETTINGS.mfiEnabled);
     $("#patternsToggle").prop("checked", SETTINGS.patternsEnabled);
+    $("#winRateHeaderValuesToggle").prop("checked", SETTINGS.winRateHeaderValuesEnabled);
+    $("#winRateChartLinesToggle").prop("checked", SETTINGS.winRateChartLinesEnabled);
     $("#niftyToggle").prop("checked", SETTINGS.autoLoadNifty);
     TIMEFRAMES.forEach((tf) => {
       $(`.panel-toggle[data-tf="${tf.key}"]`).prop("checked", !!SETTINGS.visible[tf.key]);
@@ -1294,6 +1304,13 @@ function candleColors() {
 
     $("#patternsToggle").on("change", function () {
       SETTINGS.patternsEnabled = $(this).is(":checked");
+      saveSettings();
+      rerenderAllFromCache();
+    });
+
+    $("#winRateHeaderValuesToggle, #winRateChartLinesToggle").on("change", function () {
+      SETTINGS.winRateHeaderValuesEnabled = $("#winRateHeaderValuesToggle").is(":checked");
+      SETTINGS.winRateChartLinesEnabled = $("#winRateChartLinesToggle").is(":checked");
       saveSettings();
       rerenderAllFromCache();
     });
@@ -1774,7 +1791,10 @@ function candleColors() {
     if (["M", "W", "D"].includes(tfKey) && window.StockPrediction) {
       const analysisDepth = Number(SETTINGS.analysisPoints) || 0;
       const analysisWin = analysisDepth > 0 ? full.slice(-analysisDepth) : full;
-      StockPrediction.update(currentStock, analysisWin, c, tfKey, filtered, quoteCache);
+      StockPrediction.update(
+        currentStock, analysisWin, c, tfKey, filtered, quoteCache,
+        SETTINGS.winRateHeaderValuesEnabled, SETTINGS.winRateChartLinesEnabled
+      );
     }
 
     const last = bars[bars.length - 1];
@@ -2600,7 +2620,10 @@ function candleColors() {
       setAnalysisView(!showingAnalysis);
       if (!showingAnalysis && window.StockPrediction) {
         if (currentStock && candleCache.D) {
-          StockPrediction.update(currentStock, candleCache.D, charts.D, "D", filtered, quoteCache);
+          StockPrediction.update(
+            currentStock, candleCache.D, charts.D, "D", filtered, quoteCache,
+            SETTINGS.winRateHeaderValuesEnabled, SETTINGS.winRateChartLinesEnabled
+          );
         } else {
           StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
         }

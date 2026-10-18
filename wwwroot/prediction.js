@@ -219,7 +219,7 @@ window.StockPrediction = (function () {
     if (labels) labels.innerHTML = "";
   }
 
-  function drawLevels(tfKey, chartInfo, analysis) {
+  function drawLevels(tfKey, chartInfo, analysis, showHeaderValues, showChartLines) {
     if (!chartInfo) return;
     clearLines(tfKey, chartInfo);
     if (!analysis) return;
@@ -232,13 +232,15 @@ window.StockPrediction = (function () {
     // from the last close, so the level lines must live in that same space.
     const tx = chartInfo.pctTx || null;
     const mapPrice = tx ? (price) => (price - tx.C) * tx.k : (price) => price;
-    chartInfo.levelPrices = lines.map((line) => mapPrice(line.price)).filter(Number.isFinite);
-    activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
-      price: mapPrice(line.price), color: line.color, lineWidth: 1.5,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: false, title: line.title
-    }));
-    if (chartInfo.levelsHost) {
+    if (showChartLines) {
+      chartInfo.levelPrices = lines.map((line) => mapPrice(line.price)).filter(Number.isFinite);
+      activeLines[tfKey] = lines.map((line) => chartInfo.series.createPriceLine({
+        price: mapPrice(line.price), color: line.color, lineWidth: 1.5,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        axisLabelVisible: false, title: line.title
+      }));
+    }
+    if (showHeaderValues && chartInfo.levelsHost) {
       const labels = chartInfo.levelsHost;
       if (labels) {
         const levels = lines.map((line) => {
@@ -613,7 +615,7 @@ window.StockPrediction = (function () {
     return number >= 1e9 ? `${(number / 1e9).toFixed(2)}B` : number >= 1e6 ? `${(number / 1e6).toFixed(2)}M` : number.toFixed(2);
   }
 
-  async function update(stock, bars, chartInfo, tfKey, stocks, quoteMap) {
+  async function update(stock, bars, chartInfo, tfKey, stocks, quoteMap, showHeaderValues = true, showChartLines = false) {
     const analysis = analyze(bars, tfKey === "D" ? 60 : 20);
     lastAnalysis = analysis;
     if (stock && stock.s && analysis) {
@@ -621,7 +623,7 @@ window.StockPrediction = (function () {
       timeframeAnalyses[stock.s][tfKey] = analysis;
     }
     if (analysis) {
-      drawLevels(tfKey, chartInfo, analysis);
+      drawLevels(tfKey, chartInfo, analysis, showHeaderValues, showChartLines);
       if (tfKey === "D") cacheBars(stock.s, bars);
     }
     const analysisStocks = stocks && stocks.length ? stocks : stock && stock.i === "Custom" ? [stock] : [];
