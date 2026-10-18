@@ -243,6 +243,18 @@
         </div>
       </div>
       <div class="settings-section">
+        <h4>Recent high touch</h4>
+        <div class="recent-high-filter-row" id="recentHighFilterControls">
+          <label class="filter-enable-row"><input type="checkbox" id="recentHighFilterEnabled"><span>Touch</span></label>
+          <select id="recentHighFilterSource" class="settings-select" aria-label="Recent high type">
+            <option value="allTimeHigh">ATH</option>
+            <option value="fiftyTwoWeekHigh">52-week high</option>
+          </select>
+          <label class="filter-value"><span>Last</span> <input type="number" id="recentHighFilterMonths" class="settings-input" min="1" max="60" step="1" aria-label="Number of months"> <span>mo</span></label>
+        </div>
+        <div class="recent-high-hint">Daily high within 0.1%</div>
+      </div>
+      <div class="settings-section">
         <div class="filter-section-heading">
           <h4>Trend-line breakout</h4>
           <div class="filter-info-wrap">

@@ -31,6 +31,7 @@
   const MFI_PERIOD = 14;
   const MACD_FAST = 12, MACD_SLOW = 26, MACD_SIGNAL = 9;
   const SUPER_TREND_MULTIPLIER = 3;
+  const MAX_RECENT_HIGH_MONTHS = 60;
 
   const NIFTY_STOCK = { s: "^NSEI", n: "Nifty 50 Index", i: "Index" };
   const SETTINGS_KEY = "nseCharts.settings";
@@ -65,6 +66,9 @@
       highEnabled: false,
       highSource: "allTimeHigh",
       highPercent: 1,
+      recentHighEnabled: false,
+      recentHighSource: "allTimeHigh",
+      recentHighMonths: 6,
       breakoutEnabled: false,
       breakoutProbability: 60,
       aboveSma: { D: false, W: false, M: false }
@@ -410,12 +414,12 @@
 
   function matchesFilters(stock) {
     const filters = SETTINGS.filters;
-    const active = filters.changeEnabled || filters.highEnabled || filters.breakoutEnabled ||
+    const active = filters.changeEnabled || filters.highEnabled || filters.recentHighEnabled || filters.breakoutEnabled ||
       filters.aboveSma.D || filters.aboveSma.W || filters.aboveSma.M;
     if (!active) return true;
 
     const meta = getQuoteMeta(stock);
-    const needsQuoteMeta = filters.changeEnabled || filters.highEnabled ||
+    const needsQuoteMeta = filters.changeEnabled || filters.highEnabled || filters.recentHighEnabled ||
       filters.aboveSma.D || filters.aboveSma.W || filters.aboveSma.M;
     if (needsQuoteMeta && !meta) return false;
     if (filters.changeEnabled) {
@@ -427,6 +431,13 @@
       const price = meta.price;
       if (!Number.isFinite(high) || high <= 0 || !Number.isFinite(price) || price <= 0) return false;
       if (price < high * (1 - filters.highPercent / 100)) return false;
+    }
+    if (filters.recentHighEnabled) {
+      if (meta.recentHighMonths !== filters.recentHighMonths) return false;
+      const touched = filters.recentHighSource === "fiftyTwoWeekHigh"
+        ? meta.recentFiftyTwoWeekHighTouch
+        : meta.recentAllTimeHighTouch;
+      if (touched !== true) return false;
     }
     if (filters.aboveSma.D && meta.aboveSma5 !== true) return false;
     if (filters.aboveSma.W && meta.aboveSma5Weekly !== true) return false;
@@ -1081,6 +1092,10 @@ function candleColors() {
     merged.filters = Object.assign({}, DEFAULT_SETTINGS.filters, (saved && saved.filters) || {});
     merged.filters.aboveSma = Object.assign({}, DEFAULT_SETTINGS.filters.aboveSma,
       (saved && saved.filters && saved.filters.aboveSma) || {});
+    merged.filters.recentHighMonths = normalizeRecentHighMonths(merged.filters.recentHighMonths);
+    merged.filters.recentHighSource = merged.filters.recentHighSource === "fiftyTwoWeekHigh"
+      ? "fiftyTwoWeekHigh"
+      : "allTimeHigh";
     if (!saved || !saved.filters) {
       const legacyMode = saved && saved.filterMode;
       if (legacyMode === "positive" || legacyMode === "negative") {
@@ -1105,6 +1120,12 @@ function candleColors() {
     if (!value || value === "all") return [];
     const values = Array.isArray(value) ? value : [value];
     return [...new Set(values.filter((signal) => validSignals.includes(signal)))];
+  }
+
+  function normalizeRecentHighMonths(value) {
+    const months = parseInt(value, 10);
+    if (!Number.isFinite(months)) return DEFAULT_SETTINGS.filters.recentHighMonths;
+    return Math.max(1, Math.min(MAX_RECENT_HIGH_MONTHS, months));
   }
 
   function saveSettings() {
@@ -1320,6 +1341,9 @@ function candleColors() {
     $("#highFilterEnabled").prop("checked", filters.highEnabled);
     $("#highFilterSource").val(filters.highSource);
     $("#highFilterPercent").val(filters.highPercent);
+    $("#recentHighFilterEnabled").prop("checked", filters.recentHighEnabled);
+    $("#recentHighFilterSource").val(filters.recentHighSource);
+    $("#recentHighFilterMonths").val(filters.recentHighMonths);
     $("#breakoutFilterEnabled").prop("checked", filters.breakoutEnabled);
     $("#breakoutProbability").val(filters.breakoutProbability);
     $("#smaDailyFilter").prop("checked", filters.aboveSma.D);
@@ -1332,9 +1356,12 @@ function candleColors() {
     $("#filterScrim").on("click", function (event) {
       if (event.target.id === "filterScrim") $(this).removeClass("show");
     });
-    $("#filterModal input, #filterModal select").on("input change", function () {
+    $("#filterModal input, #filterModal select").on("input change", function (event) {
+      if (this.id === "recentHighFilterMonths" && event.type === "input") return;
       const weeklyWasEnabled = SETTINGS.filters.aboveSma.W;
       const breakoutWasEnabled = SETTINGS.filters.breakoutEnabled;
+      const recentHighWasEnabled = SETTINGS.filters.recentHighEnabled;
+      const recentHighMonthsWere = SETTINGS.filters.recentHighMonths;
       const probabilityValue = Number($("#breakoutProbability").val());
       SETTINGS.filters = {
         changeEnabled: $("#changeFilterEnabled").prop("checked"),
@@ -1343,6 +1370,9 @@ function candleColors() {
         highEnabled: $("#highFilterEnabled").prop("checked"),
         highSource: $("#highFilterSource").val() === "fiftyTwoWeekHigh" ? "fiftyTwoWeekHigh" : "allTimeHigh",
         highPercent: Math.max(0, Math.min(100, Number($("#highFilterPercent").val()) || 0)),
+        recentHighEnabled: $("#recentHighFilterEnabled").prop("checked"),
+        recentHighSource: $("#recentHighFilterSource").val() === "fiftyTwoWeekHigh" ? "fiftyTwoWeekHigh" : "allTimeHigh",
+        recentHighMonths: normalizeRecentHighMonths($("#recentHighFilterMonths").val()),
         breakoutEnabled: $("#breakoutFilterEnabled").prop("checked"),
         breakoutProbability: Math.max(0, Math.min(100,
           Number.isFinite(probabilityValue) ? probabilityValue : DEFAULT_SETTINGS.filters.breakoutProbability)),
@@ -1352,6 +1382,7 @@ function candleColors() {
           M: $("#smaMonthlyFilter").prop("checked")
         }
       };
+      $("#recentHighFilterMonths").val(SETTINGS.filters.recentHighMonths);
       saveSettings();
       updateFilterUI();
       refreshFilteredList();
@@ -1363,6 +1394,11 @@ function candleColors() {
         }
       } else if (weeklyWasEnabled && !SETTINGS.filters.aboveSma.W) {
         weeklySmaSyncPending = false;
+      }
+      if (SETTINGS.filters.recentHighEnabled &&
+          (!recentHighWasEnabled || recentHighMonthsWere !== SETTINGS.filters.recentHighMonths)) {
+        if (syncInProgress) universeSyncPending = true;
+        else syncPendingSymbols(STOCKS);
       }
       if (!breakoutWasEnabled && SETTINGS.filters.breakoutEnabled && !syncInProgress) {
         syncPendingSymbols(STOCKS);
@@ -1390,6 +1426,9 @@ function candleColors() {
     $("#highFilterEnabled").prop("checked", filters.highEnabled);
     $("#highFilterSource").val(filters.highSource);
     $("#highFilterPercent").val(filters.highPercent);
+    $("#recentHighFilterEnabled").prop("checked", filters.recentHighEnabled);
+    $("#recentHighFilterSource").val(filters.recentHighSource);
+    $("#recentHighFilterMonths").val(filters.recentHighMonths);
     bindSignalValues();
     $("#breakoutFilterEnabled").prop("checked", filters.breakoutEnabled);
     $("#breakoutProbability").val(filters.breakoutProbability);
@@ -1416,6 +1455,10 @@ function candleColors() {
       const highLabel = filters.highSource === "fiftyTwoWeekHigh" ? "52W high" : "ATH";
       labels.push(`Within ${filters.highPercent}% of ${highLabel}`);
     }
+    if (filters.recentHighEnabled) {
+      const highLabel = filters.recentHighSource === "fiftyTwoWeekHigh" ? "52W high" : "ATH";
+      labels.push(`${highLabel} touched in ${filters.recentHighMonths} months`);
+    }
     if (filters.breakoutEnabled) labels.push(`Trend-line breakout ≥ ${filters.breakoutProbability}%`);
     if (filters.aboveSma.D) labels.push("Above 5 SMA (D)");
     if (filters.aboveSma.W) labels.push("Above 5 SMA (W)");
@@ -1439,6 +1482,8 @@ function candleColors() {
     $("#changeFilterOperator, #changeFilterValue").prop("disabled", !filters.changeEnabled);
     $("#highFilterControls").toggleClass("disabled", !filters.highEnabled);
     $("#highFilterSource, #highFilterPercent").prop("disabled", !filters.highEnabled);
+    $("#recentHighFilterControls").toggleClass("disabled", !filters.recentHighEnabled);
+    $("#recentHighFilterSource, #recentHighFilterMonths").prop("disabled", !filters.recentHighEnabled);
     $("#breakoutProbabilityControls").toggleClass("disabled", !filters.breakoutEnabled);
     $("#breakoutProbability").prop("disabled", !filters.breakoutEnabled);
     $("#filterBtn").toggleClass("active", count > 0);
@@ -2212,6 +2257,52 @@ function candleColors() {
     return result && result.meta ? result.meta : null;
   }
 
+  function recentHighHistoryPointsNeeded(months) {
+    return 252 + months * 22 + 5;
+  }
+
+  function subtractUtcMonths(date, months) {
+    const result = new Date(date);
+    const day = result.getUTCDate();
+    result.setUTCDate(1);
+    result.setUTCMonth(result.getUTCMonth() - months);
+    const lastDay = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+    result.setUTCDate(Math.min(day, lastDay));
+    return result;
+  }
+
+  function findRecentHighTouches(candles, allTimeHigh, months) {
+    const cutoff = Math.floor(subtractUtcMonths(new Date(), months).getTime() / 1000);
+    const touches = { allTimeHigh: false, fiftyTwoWeekHigh: false };
+    const highIndices = [];
+    let highHead = 0;
+
+    for (let i = 0; i < candles.length; i++) {
+      const high = candles[i].high;
+      const firstInWindow = Math.max(0, i - 251);
+      while (highHead < highIndices.length && highIndices[highHead] < firstInWindow) highHead++;
+      while (highIndices.length > highHead &&
+          candles[highIndices[highIndices.length - 1]].high <= high) {
+        highIndices.pop();
+      }
+      highIndices.push(i);
+
+      if (candles[i].time < cutoff) continue;
+      if (Number.isFinite(allTimeHigh) && allTimeHigh > 0 && high >= allTimeHigh * 0.999) {
+        touches.allTimeHigh = true;
+      }
+      const rollingHigh = candles[highIndices[highHead]].high;
+      if (high >= rollingHigh * 0.999) touches.fiftyTwoWeekHigh = true;
+      if (touches.allTimeHigh && touches.fiftyTwoWeekHigh) break;
+
+      if (highHead > 256) {
+        highIndices.splice(0, highHead);
+        highHead = 0;
+      }
+    }
+    return touches;
+  }
+
   function extractYahooError(json) {
     const err = json && json.chart && json.chart.error;
     if (!err) return null;
@@ -2223,8 +2314,13 @@ function candleColors() {
       if (getSyncStatus(stock.s) === "not-found") return false;
       const meta = getQuoteMeta(stock);
       const filters = SETTINGS.filters;
+      const recentHighDataMissing = filters.recentHighEnabled &&
+        (!meta || meta.recentHighMonths !== filters.recentHighMonths ||
+          typeof meta.recentAllTimeHighTouch !== "boolean" ||
+          typeof meta.recentFiftyTwoWeekHighTouch !== "boolean");
       return !window.StockPrediction || !StockPrediction.hasBars(stock.s) || !meta ||
         !Number.isFinite(meta.allTimeHigh) ||
+        recentHighDataMissing ||
         (filters.aboveSma.D && typeof meta.aboveSma5 !== "boolean") ||
         (filters.aboveSma.W && typeof meta.aboveSma5Weekly !== "boolean") ||
         (filters.aboveSma.M && typeof meta.aboveSma5Monthly !== "boolean");
@@ -2298,6 +2394,47 @@ function candleColors() {
               } catch (err) {
                 // The primary quote remains usable even when full history is unavailable.
               }
+              let recentAllTimeHighTouch = null;
+              let recentFiftyTwoWeekHighTouch = null;
+              let recentHighMonths = null;
+              if (SETTINGS.filters.recentHighEnabled) {
+                recentHighMonths = normalizeRecentHighMonths(SETTINGS.filters.recentHighMonths);
+                try {
+                  const requiredBars = recentHighHistoryPointsNeeded(recentHighMonths);
+                  let touchCandles = candles;
+                  let touchHistoryAvailable = touchCandles.length >= requiredBars;
+                  if (touchCandles.length < requiredBars) {
+                    const touchRange = source.mapRange("D", Math.max(historyPointsNeeded(), requiredBars));
+                    const touchUrl = `${CONTROLLER_PROXY}?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(touchRange)}`;
+                    const touchRequest = fetchWithControllerProxy(touchUrl);
+                    syncAbortControllers.add(touchRequest.controllers[0]);
+                    try {
+                      const touchJson = await touchRequest.promise;
+                      const touchError = extractYahooError(touchJson);
+                      if (touchError) {
+                        console.warn(`[${stock.s}] recent-high history unavailable: ${touchError}`);
+                        touchCandles = [];
+                      } else {
+                        touchCandles = source.parseCandles(touchJson);
+                        touchHistoryAvailable = touchCandles.length > 0;
+                      }
+                    } finally {
+                      syncAbortControllers.delete(touchRequest.controllers[0]);
+                    }
+                  }
+                  if (touchHistoryAvailable && touchCandles.length) {
+                    const touches = findRecentHighTouches(touchCandles, allTimeHigh, recentHighMonths);
+                    recentAllTimeHighTouch = touches.allTimeHigh;
+                    recentFiftyTwoWeekHighTouch = touches.fiftyTwoWeekHigh;
+                  } else {
+                    console.warn(`[${stock.s}] recent-high history returned no usable candles`);
+                  }
+                } catch (err) {
+                  if (err && err.name !== "AbortError") {
+                    console.warn(`[${stock.s}] recent-high history unavailable`, err);
+                  }
+                }
+              }
               let aboveSma5Weekly = null;
               if (SETTINGS.filters.aboveSma.W) {
                 try {
@@ -2339,7 +2476,10 @@ function candleColors() {
                 aboveSma5Monthly,
                 sma5,
                 fiftyTwoWeekHigh: meta && Number.isFinite(meta.fiftyTwoWeekHigh) ? meta.fiftyTwoWeekHigh : null,
-                allTimeHigh
+                allTimeHigh,
+                recentHighMonths,
+                recentAllTimeHighTouch,
+                recentFiftyTwoWeekHighTouch
               };
               break;
             } catch (err) {
