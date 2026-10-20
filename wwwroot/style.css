@@ -41,6 +41,7 @@
 
   /* ---- Density (compact = default) ---- */
   --density-scale: 1;
+  --chart-grid-gap: 1px;
   --sidebar-w: 240px;
   --header-h: 36px;
   --panel-head-padding-y: 0px;
@@ -82,6 +83,7 @@
 
 :root[data-density="spacious"]{
   --density-scale: 1.4;
+  --chart-grid-gap: 3px;
   --sidebar-w: 300px;
   --header-h: 62px;
   --panel-head-padding-y: 2px;
@@ -856,7 +858,7 @@ kbd{
   display:grid;
   grid-template-columns:1fr 1fr;
   grid-template-rows:1fr 1fr;
-  gap:6px;
+  gap:var(--chart-grid-gap);
   height:95%;
   min-height:450px;
   padding:0px;
@@ -1430,7 +1432,7 @@ kbd{
   .topbar{ padding:0 9px; }
   .topbar-right{ gap:3px; }
   .grid-wrap{ padding:4px; }
-  .chart-grid{ gap:4px; }
+  .chart-grid{ gap:var(--chart-grid-gap); }
   .chart-panel{ min-height:145px; }
   .panel-head{ display:flex; align-items:center; gap:5px; padding:calc(var(--panel-head-padding-y) + 1px) 6px; min-height:var(--panel-head-mobile-min-height); }
   .panel-head-left{ flex:0 0 auto; gap:4px; min-width:0; }
