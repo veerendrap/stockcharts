@@ -713,7 +713,6 @@
 
   $("#refreshBtn").on("click", function () {
     if (currentStock) {
-      resetChartLayout();
       setSyncStatus(currentStock.s, "pending");
       syncSymbols([currentStock]).then(() => loadSymbol(currentStock));
     }
@@ -1700,16 +1699,6 @@ function candleColors() {
   /* ---------------------------------------------------------
      8. Loading a symbol into all four charts
      --------------------------------------------------------- */
-
-  function resetChartLayout() {
-    TIMEFRAMES.forEach((tf) => {
-      SETTINGS.visible[tf.key] = !!DEFAULT_SETTINGS.visible[tf.key];
-      $(`.panel-toggle[data-tf="${tf.key}"]`).prop("checked", SETTINGS.visible[tf.key]);
-      setPanelVisible(tf.key, SETTINGS.visible[tf.key]);
-    });
-    updateGridLayout();
-    saveSettings();
-  }
 
   function loadSymbol(stock) {
     currentStock = stock;
