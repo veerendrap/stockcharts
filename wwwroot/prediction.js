@@ -9,6 +9,9 @@ window.StockPrediction = (function () {
   const activeLines = {};
   const barsCache = {};
   const timeframeAnalyses = {};
+  const HIT_RATE_MIN_SAMPLES = 10;
+  const HIT_RATE_MAX_SAMPLES = 100;
+  const HIT_RATE_HORIZON = 10;
   let lastAnalysis = null;
   let analysisViewMode = null;
 
@@ -30,14 +33,19 @@ window.StockPrediction = (function () {
     const risk = entry - stop;
     const rewardRisk = calculateRewardRisk(trendScore, atr, entry);
     const target = entry + risk * rewardRisk;
-    const probability = estimateHitRate(bars, atr);
+    const hitRate = estimateHitRate(bars, atr);
     const signal = trendScore >= 4 ? "BUY / HOLD" : trendScore >= 2 ? "WATCH" : "AVOID";
     const direction = trendScore >= 2 ? "up" : trendScore <= 0 ? "down" : "flat";
 
     return {
       current, entry, stop, target, atr, sma5, sma20, sma50, sma200, rsi, momentum,
-      trendScore, signal, direction, probability, rewardRisk,
-      horizon: "next 10 trading days",
+      trendScore, signal, direction,
+      probability: hitRate.probability,
+      confidenceLower: hitRate.lower,
+      confidenceUpper: hitRate.upper,
+      samples: hitRate.samples,
+      rewardRisk,
+      horizon: "next 10 bars",
       asOf: bars[bars.length - 1].time
     };
   }
@@ -124,22 +132,24 @@ window.StockPrediction = (function () {
     return 100 - (100 / (1 + (gains / period) / (losses / period)));
   }
 
-  // Walks forward through recent history and counts whether target or stop wins first.
+  // Tests non-overlapping forward windows to reduce dependence between outcomes.
   function estimateHitRate(bars, atr) {
-    const horizon = Math.min(10, Math.max(3, Math.floor(bars.length / 4)));
-    const firstIndex = Math.max(0, bars.length - horizon - 100);
-    if (bars.length - horizon - firstIndex < 3) return null;
+    const firstIndex = Math.max(
+      50,
+      bars.length - HIT_RATE_HORIZON - HIT_RATE_HORIZON * HIT_RATE_MAX_SAMPLES
+    );
     let wins = 0, samples = 0;
-    for (let index = firstIndex; index < bars.length - horizon; index++) {
+    for (let index = firstIndex; index + HIT_RATE_HORIZON < bars.length; index += HIT_RATE_HORIZON) {
       const entry = bars[index].close;
       const localAtr = averageTrueRange(bars, index) || atr;
       const histBars = bars.slice(0, index + 1);
+      const histCloses = histBars.map((bar) => bar.close);
       const histTrendScore = histBars.length >= 50 ? scoreTrend(
         entry,
-        movingAverage(histBars.map(b => b.close), 20),
-        movingAverage(histBars.map(b => b.close), 50),
-        calculateRsi(histBars.map(b => b.close), 14),
-        histBars.length > 20 ? ((entry / histBars[histBars.length - 21].close) - 1) * 100 : 0
+        movingAverage(histCloses, 20),
+        movingAverage(histCloses, 50),
+        calculateRsi(histCloses, 14),
+        histBars.length > 20 ? ((entry / histCloses[histCloses.length - 21]) - 1) * 100 : 0
       ) : 2;
       const rr = calculateRewardRisk(histTrendScore, localAtr, entry);
       const riskDistance = Math.max(localAtr * 1.5, entry * 0.005);
@@ -148,13 +158,34 @@ window.StockPrediction = (function () {
       const target = entry + risk * rr;
       let won = false;
       samples++;
-      for (let forward = index + 1; forward <= Math.min(index + horizon, bars.length - 1); forward++) {
+      for (let forward = index + 1; forward <= index + HIT_RATE_HORIZON; forward++) {
         if (bars[forward].low <= stop) break;
         if (bars[forward].high >= target) { won = true; break; }
       }
       if (won) wins++;
     }
-    return samples >= 3 ? Math.round((wins / samples) * 100) : null;
+    const interval = wilsonInterval(wins, samples);
+    return {
+      probability: samples >= HIT_RATE_MIN_SAMPLES ? Math.round((wins / samples) * 100) : null,
+      lower: samples >= HIT_RATE_MIN_SAMPLES ? Math.floor(interval.lower * 100) : null,
+      upper: samples >= HIT_RATE_MIN_SAMPLES ? Math.ceil(interval.upper * 100) : null,
+      samples
+    };
+  }
+
+  function wilsonInterval(wins, samples) {
+    if (!samples) return { lower: 0, upper: 1 };
+    const z = 1.96;
+    const rate = wins / samples;
+    const zSquared = z * z;
+    const denominator = 1 + zSquared / samples;
+    const center = (rate + zSquared / (2 * samples)) / denominator;
+    const margin = (z * Math.sqrt((rate * (1 - rate) / samples) +
+      (zSquared / (4 * samples * samples)))) / denominator;
+    return {
+      lower: Math.max(0, center - margin),
+      upper: Math.min(1, center + margin)
+    };
   }
 
   function averageTrueRange(bars, endIndex = bars.length - 1, period = 14) {
@@ -253,9 +284,13 @@ window.StockPrediction = (function () {
           const visibleDelta = line.title === "ENTRY" ? "" : `<small>[${deltaText}]</small>`;
           return `<div class="prediction-level ${line.title.toLowerCase()}" title="${description}" aria-label="${description}"><b aria-hidden="true">${icon}</b><span>${money(line.price)}</span>${visibleDelta}</div>`;
         }).join("");
-        const winRate = Number.isFinite(analysis.probability) ? `${analysis.probability}%${analysis.provisional ? "*" : ""}` : "—";
-        const winRateDescription = `Winning rate: ${winRate.replace("*", "")}. Historical target-hit estimate from recent samples.`;
-        labels.innerHTML = `<div class="prediction-winrate" title="${winRateDescription}" aria-label="${winRateDescription}"><b aria-hidden="true">◎</b><span>${winRate}</span><small>WIN</small></div>${levels}`;
+        const hitRate = Number.isFinite(analysis.probability) ? `${analysis.probability}%` : "—";
+        const hitRateDescription = analysis.provisional
+          ? "Historical hit rate unavailable: daily history has not been synced."
+          : Number.isFinite(analysis.probability)
+            ? `Historical target-before-stop hit rate: ${hitRate}, approximate 95% Wilson interval ${analysis.confidenceLower}-${analysis.confidenceUpper}%, based on ${analysis.samples} non-overlapping outcome windows. Descriptive history, not a forecast.`
+            : `Historical hit rate unavailable: ${analysis.samples} non-overlapping outcome windows; at least ${HIT_RATE_MIN_SAMPLES} are required.`;
+        labels.innerHTML = `<div class="prediction-winrate" title="${hitRateDescription}" aria-label="${hitRateDescription}"><b aria-hidden="true">◎</b><span>${hitRate}</span><small>HIT</small><small>n=${analysis.samples || 0}</small></div>${levels}`;
       }
     }
   }
@@ -313,7 +348,7 @@ window.StockPrediction = (function () {
     const target = current + risk * rr;
     return {
       current, entry: current, stop, target,
-      probability: 50, trendScore,
+      probability: null, samples: 0, confidenceLower: null, confidenceUpper: null, trendScore,
       signal: move > 0 ? "WATCH" : "AVOID", direction: move > 0 ? "up" : move < 0 ? "down" : "flat",
       momentum: move, rsi: null, provisional: true, rewardRisk: rr
     };
@@ -336,7 +371,7 @@ window.StockPrediction = (function () {
     panel.appendChild(buildPredictionTable(list, quoteMap, selected));
     const note = document.createElement("p");
     note.className = "analysis-note";
-    note.textContent = "Winning rate is the historical target-hit estimate for the model's recent samples, expressed from 0–100%. Trend score is a separate 0–5 technical alignment score, not a winning rate. Rows marked * are provisional until that stock's daily history has been synced. This stock-only model does not evaluate options or futures.";
+    note.textContent = "Historical hit rate is the percentage of tested entries where the target was reached before the stop within 10 candles. Tests use non-overlapping outcome windows; timeouts and stop-first cases are not wins, and same-candle target/stop touches count as stop-first. Rates are shown only with at least 10 samples, alongside an approximate 95% Wilson interval and sample count. If n is below 10, increase Analysis Points in Settings if more history is available. This is descriptive historical data, not a calibrated forecast or guarantee. Provisional signals have no hit-rate estimate. Trend score is a separate 0–5 technical alignment score. This stock-only model does not evaluate options or futures.";
     panel.appendChild(note);
     initializeDataTable(tableState);
   }
@@ -375,7 +410,7 @@ window.StockPrediction = (function () {
     const headers = [
       { text: "◫ Stock", title: "" },
       { text: "◆ Signal", title: "BUY/HOLD = trendScore ≥4, WATCH = 2-3, AVOID ≤1" },
-      { text: "◎ Win rates", title: "D, W and M are daily, weekly and monthly candles. For each timeframe, this is the percentage of up to 100 past setups where the target was reached before the stop within the next 3-10 candles. Stop-first and no-hit cases count as not wins; same-candle target/stop touches count as stop-first." },
+      { text: "◎ Hit rates", title: "D, W and M are daily, weekly and monthly candles. Each rate uses up to 100 historical entries with non-overlapping 10-candle outcome windows. Stop-first and no-hit cases are not wins; same-candle target/stop touches count as stop-first. Rates require at least 10 samples and include an approximate 95% Wilson interval." },
       { text: "• Entry", title: "Current price (reference level = 0%)" },
       { text: "▲ Target", title: "Price target = entry + risk × dynamic R:R" },
       { text: "↗ Target %", title: "Target as % from entry" },
@@ -483,12 +518,13 @@ window.StockPrediction = (function () {
     const analyses = { D: dailyAnalysis, W: timeframeAnalyses[symbol] && timeframeAnalyses[symbol].W, M: timeframeAnalyses[symbol] && timeframeAnalyses[symbol].M };
     const parts = ["D", "W", "M"].map((timeframe) => {
       const analysis = analyses[timeframe];
-      const probability = analysis && !analysis.provisional && Number.isFinite(analysis.probability) ? `${analysis.probability}%` : "—";
-      return `${timeframe}:${probability}`;
+      if (!analysis || analysis.provisional) return `${timeframe}:— (n=0)`;
+      if (!Number.isFinite(analysis.probability)) return `${timeframe}:— (n=${analysis.samples || 0})`;
+      return `${timeframe}:${analysis.probability}% (${analysis.confidenceLower}-${analysis.confidenceUpper}; n=${analysis.samples})`;
     });
     return {
       text: parts.join("|"),
-      tooltip: "D = daily candles, W = weekly candles, M = monthly candles. Each percentage is wins divided by all tested past setups, rounded to a whole number. The test checks up to 100 entry candles and the next 3-10 candles; stop-first and no-hit cases are not wins. If target and stop are both touched in one candle, the stop is counted first. — means there are not enough samples."
+      tooltip: "D = daily candles, W = weekly candles, M = monthly candles. Each percentage is the target-before-stop rate across up to 100 historical entries with non-overlapping 10-candle outcome windows. The range is an approximate 95% Wilson interval; n is the sample count. Stop-first, same-candle target/stop, and no-hit cases are not wins. Rates are withheld below 10 samples. This historical statistic is descriptive, not a calibrated forecast."
     };
   }
 

@@ -751,7 +751,7 @@ kbd{
 .prediction-level.entry{ color:#2563eb; }
 .prediction-level.target{ color:var(--up); }
 .prediction-level.stop{ color:var(--down); }
-.prediction-winrate{ display:grid; grid-template-columns:14px auto auto; align-items:center; gap:2px; margin-left:1px; padding-left:1px;padding-right:5px; border-left:1px solid var(--border); color:var(--amber); font:700 10px var(--font-mono); white-space:nowrap; }
+.prediction-winrate{ display:grid; grid-template-columns:14px auto auto auto; align-items:center; gap:2px; margin-left:1px; padding-left:1px;padding-right:5px; border-left:1px solid var(--border); color:var(--amber); font:700 10px var(--font-mono); white-space:nowrap; }
 .prediction-winrate b{ font-size:16px; line-height:1; }
 .prediction-winrate span{ color:var(--text); }
 .prediction-winrate small{ color:var(--amber); font-size:8px; }
@@ -834,7 +834,7 @@ kbd{
 .card-mode .prediction-grid td:nth-child(1){ display:block; grid-column:1 / -1; min-height:40px; padding:7px 8px; text-align:left; border:0; }
 .card-mode .prediction-grid td:nth-child(1)::before{ display:none; }
 .card-mode .prediction-grid td:nth-child(2)::before{ content:"◆ Signal"; }
-.card-mode .prediction-grid td:nth-child(3)::before{ content:"◎ Win rates"; }
+.card-mode .prediction-grid td:nth-child(3)::before{ content:"◎ Hit rates"; }
 .card-mode .prediction-grid td:nth-child(4)::before{ content:"• Entry"; }
 .card-mode .prediction-grid td:nth-child(5)::before{ content:"▲ Target"; }
 .card-mode .prediction-grid td:nth-child(6)::before{ content:"↗ Target %"; }
