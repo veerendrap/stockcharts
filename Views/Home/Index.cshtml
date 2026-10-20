@@ -496,6 +496,53 @@
             <span class="thumb"></span>
           </label>
         </div>
+        <div class="settings-section">
+          <h4>Chart-wise settings</h4>
+          <div class="chart-config-row" data-tf="D">
+            <div class="chart-config-head">Daily</div>
+            <div class="chart-config-controls">
+              <label class="chart-config-field"><span>Bars</span><input type="number" id="chartBarCount-D" class="settings-input chart-config-input" data-type="barCount" min="20" max="5000" step="10"></label>
+              <label class="chart-config-check"><input type="checkbox" id="chartRsi-D" class="chart-config-toggle" data-type="rsi"> RSI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMfi-D" class="chart-config-toggle" data-type="mfi"> MFI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMacd-D" class="chart-config-toggle" data-type="macd"> MACD</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartSupertrend-D" class="chart-config-toggle" data-type="supertrend"> ST</label>
+              <label class="chart-config-field compact"><span>ST</span><input type="number" id="chartSupertrendPeriod-D" class="settings-input chart-config-input" data-type="supertrendPeriod" min="1" max="50" step="1"></label>
+            </div>
+          </div>
+          <div class="chart-config-row" data-tf="W">
+            <div class="chart-config-head">Weekly</div>
+            <div class="chart-config-controls">
+              <label class="chart-config-field"><span>Bars</span><input type="number" id="chartBarCount-W" class="settings-input chart-config-input" data-type="barCount" min="20" max="5000" step="10"></label>
+              <label class="chart-config-check"><input type="checkbox" id="chartRsi-W" class="chart-config-toggle" data-type="rsi"> RSI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMfi-W" class="chart-config-toggle" data-type="mfi"> MFI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMacd-W" class="chart-config-toggle" data-type="macd"> MACD</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartSupertrend-W" class="chart-config-toggle" data-type="supertrend"> ST</label>
+              <label class="chart-config-field compact"><span>ST</span><input type="number" id="chartSupertrendPeriod-W" class="settings-input chart-config-input" data-type="supertrendPeriod" min="1" max="50" step="1"></label>
+            </div>
+          </div>
+          <div class="chart-config-row" data-tf="M">
+            <div class="chart-config-head">Monthly</div>
+            <div class="chart-config-controls">
+              <label class="chart-config-field"><span>Bars</span><input type="number" id="chartBarCount-M" class="settings-input chart-config-input" data-type="barCount" min="20" max="5000" step="10"></label>
+              <label class="chart-config-check"><input type="checkbox" id="chartRsi-M" class="chart-config-toggle" data-type="rsi"> RSI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMfi-M" class="chart-config-toggle" data-type="mfi"> MFI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMacd-M" class="chart-config-toggle" data-type="macd"> MACD</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartSupertrend-M" class="chart-config-toggle" data-type="supertrend"> ST</label>
+              <label class="chart-config-field compact"><span>ST</span><input type="number" id="chartSupertrendPeriod-M" class="settings-input chart-config-input" data-type="supertrendPeriod" min="1" max="50" step="1"></label>
+            </div>
+          </div>
+          <div class="chart-config-row" data-tf="H">
+            <div class="chart-config-head">1 Hour</div>
+            <div class="chart-config-controls">
+              <label class="chart-config-field"><span>Bars</span><input type="number" id="chartBarCount-H" class="settings-input chart-config-input" data-type="barCount" min="20" max="5000" step="10"></label>
+              <label class="chart-config-check"><input type="checkbox" id="chartRsi-H" class="chart-config-toggle" data-type="rsi"> RSI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMfi-H" class="chart-config-toggle" data-type="mfi"> MFI</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartMacd-H" class="chart-config-toggle" data-type="macd"> MACD</label>
+              <label class="chart-config-check"><input type="checkbox" id="chartSupertrend-H" class="chart-config-toggle" data-type="supertrend"> ST</label>
+              <label class="chart-config-field compact"><span>ST</span><input type="number" id="chartSupertrendPeriod-H" class="settings-input chart-config-input" data-type="supertrendPeriod" min="1" max="50" step="1"></label>
+            </div>
+          </div>
+        </div>
         <div class="settings-row">
           <div>
             <div class="row-label">Candlestick patterns</div>

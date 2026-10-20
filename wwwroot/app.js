@@ -54,6 +54,12 @@
     mfiEnabled: false,
     supertrendEnabled: false,
     supertrendPeriod: 5,
+    chartSettings: {
+      D: {},
+      W: {},
+      M: {},
+      H: {}
+    },
     patternsEnabled: false,
     winRateHeaderValuesEnabled: true,
     winRateChartLinesEnabled: false,
@@ -1038,15 +1044,18 @@ function candleColors() {
 
   function applyPaneLayout(tfKey) {
     const c = charts[tfKey];
-    const oscillatorOn = SETTINGS.rsiEnabled || SETTINGS.mfiEnabled;
-    const layout = computeLayout(oscillatorOn, SETTINGS.macdEnabled);
+    const rsiEnabled = !!getChartSetting(tfKey, "rsiEnabled", SETTINGS.rsiEnabled);
+    const mfiEnabled = !!getChartSetting(tfKey, "mfiEnabled", SETTINGS.mfiEnabled);
+    const macdEnabled = !!getChartSetting(tfKey, "macdEnabled", SETTINGS.macdEnabled);
+    const oscillatorOn = rsiEnabled || mfiEnabled;
+    const layout = computeLayout(oscillatorOn, macdEnabled);
     c.series.priceScale().applyOptions({ scaleMargins: layout.price });
     c.volSeries.priceScale().applyOptions({ scaleMargins: layout.vol });
     c.rsiSeries.priceScale().applyOptions({ scaleMargins: layout.rsi });
     c.macdLine.priceScale().applyOptions({ scaleMargins: layout.macd });
     c.rsiSeries.applyOptions({ visible: oscillatorOn });
-    c.mfiSeries.applyOptions({ visible: SETTINGS.mfiEnabled });
-    [c.macdLine, c.macdSignal, c.macdHist].forEach((s) => s.applyOptions({ visible: SETTINGS.macdEnabled }));
+    c.mfiSeries.applyOptions({ visible: mfiEnabled });
+    [c.macdLine, c.macdSignal, c.macdHist].forEach((s) => s.applyOptions({ visible: macdEnabled }));
 
     // Top-left value overlays ride along with each pane's vertical band so
     // they keep lining up with the price, oscillator, and MACD plots regardless of
@@ -1130,6 +1139,7 @@ function candleColors() {
       saved = raw ? JSON.parse(raw) : null;
     } catch (e) { saved = null; }
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved || {});
+    merged.chartSettings = normalizeChartSettings(merged.chartSettings || {});
     merged.signalMode = normalizeSignalModes(merged.signalMode);
     merged.visible = Object.assign({}, DEFAULT_SETTINGS.visible, (saved && saved.visible) || {});
     merged.filters = Object.assign({}, DEFAULT_SETTINGS.filters, (saved && saved.filters) || {});
@@ -1177,6 +1187,50 @@ function candleColors() {
     return Math.max(1, Math.min(MAX_RECENT_HIGH_MONTHS, months));
   }
 
+  function normalizeChartSettings(value) {
+    const normalized = {};
+    TIMEFRAMES.forEach((tf) => {
+      const raw = value && value[tf.key];
+      if (!raw || typeof raw !== "object") return;
+      const cfg = {};
+      if (Object.prototype.hasOwnProperty.call(raw, "barCount")) {
+        const parsed = parseInt(raw.barCount, 10);
+        cfg.barCount = Number.isFinite(parsed) ? Math.max(10, Math.min(5000, parsed)) : DEFAULT_SETTINGS.barCount;
+      }
+      if (Object.prototype.hasOwnProperty.call(raw, "rsiEnabled")) cfg.rsiEnabled = !!raw.rsiEnabled;
+      if (Object.prototype.hasOwnProperty.call(raw, "mfiEnabled")) cfg.mfiEnabled = !!raw.mfiEnabled;
+      if (Object.prototype.hasOwnProperty.call(raw, "macdEnabled")) cfg.macdEnabled = !!raw.macdEnabled;
+      if (Object.prototype.hasOwnProperty.call(raw, "supertrendEnabled")) cfg.supertrendEnabled = !!raw.supertrendEnabled;
+      if (Object.prototype.hasOwnProperty.call(raw, "supertrendPeriod")) {
+        const parsed = parseInt(raw.supertrendPeriod, 10);
+        cfg.supertrendPeriod = Number.isFinite(parsed) ? Math.max(1, Math.min(50, parsed)) : DEFAULT_SETTINGS.supertrendPeriod;
+      }
+      if (Object.keys(cfg).length) normalized[tf.key] = cfg;
+    });
+    return normalized;
+  }
+
+  function getChartSetting(tfKey, key, fallback) {
+    const chartConfig = SETTINGS.chartSettings && SETTINGS.chartSettings[tfKey];
+    if (chartConfig && Object.prototype.hasOwnProperty.call(chartConfig, key)) {
+      return chartConfig[key];
+    }
+    return Object.prototype.hasOwnProperty.call(SETTINGS, key) ? SETTINGS[key] : fallback;
+  }
+
+  function updateChartSetting(tfKey, key, value) {
+    const settings = SETTINGS.chartSettings || (SETTINGS.chartSettings = {});
+    const chartConfig = settings[tfKey] || (settings[tfKey] = {});
+    const fallbackValue = SETTINGS[key];
+    const isSameAsFallback = value === fallbackValue || (typeof value === "number" && Number.isFinite(value) && value === Number(fallbackValue));
+    if (value === undefined || value === null || isSameAsFallback) {
+      delete chartConfig[key];
+      if (!Object.keys(chartConfig).length) delete settings[tfKey];
+      return;
+    }
+    chartConfig[key] = value;
+  }
+
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); }
     catch (e) { /* privacy mode / storage disabled — settings still work for this session */ }
@@ -1208,6 +1262,7 @@ function candleColors() {
     });
 
     buildSourcePicker();
+    bindChartConfigUI();
 
     $("#settingsBtn").on("click", () => $("#settingsScrim").addClass("show"));
     $("#settingsClose").on("click", () => $("#settingsScrim").removeClass("show"));
@@ -1343,6 +1398,32 @@ function candleColors() {
       rerenderAllFromCache();
     });
 
+    $(".chart-config-input, .chart-config-toggle").on("input change", function () {
+      const tfKey = $(this).closest(".chart-config-row").data("tf");
+      const type = $(this).data("type");
+      if (!tfKey || !type) return;
+      if (type === "barCount") {
+        const parsed = parseInt($(this).val(), 10);
+        const safe = Number.isFinite(parsed) ? Math.max(10, Math.min(5000, parsed)) : SETTINGS.barCount;
+        updateChartSetting(tfKey, "barCount", safe);
+      } else if (type === "supertrendPeriod") {
+        const parsed = parseInt($(this).val(), 10);
+        const safe = Number.isFinite(parsed) ? Math.max(1, Math.min(50, parsed)) : SETTINGS.supertrendPeriod;
+        updateChartSetting(tfKey, "supertrendPeriod", safe);
+      } else if (type === "rsi") {
+        updateChartSetting(tfKey, "rsiEnabled", $(this).is(":checked"));
+      } else if (type === "mfi") {
+        updateChartSetting(tfKey, "mfiEnabled", $(this).is(":checked"));
+      } else if (type === "macd") {
+        updateChartSetting(tfKey, "macdEnabled", $(this).is(":checked"));
+      } else if (type === "supertrend") {
+        updateChartSetting(tfKey, "supertrendEnabled", $(this).is(":checked"));
+      }
+      saveSettings();
+      applyStoredLayoutState();
+      renderChartData(tfKey);
+    });
+
     $("#patternsToggle").on("change", function () {
       SETTINGS.patternsEnabled = $(this).is(":checked");
       saveSettings();
@@ -1388,6 +1469,18 @@ function candleColors() {
         if (candleCache[tfKey]) renderChartData(tfKey);
         else loadTimeframe(currentStock, tfKey);
       }
+    });
+  }
+
+  function bindChartConfigUI() {
+    TIMEFRAMES.forEach((tf) => {
+      const tfKey = tf.key;
+      $(`#chartBarCount-${tfKey}`).val(getChartSetting(tfKey, "barCount", SETTINGS.barCount));
+      $(`#chartRsi-${tfKey}`).prop("checked", !!getChartSetting(tfKey, "rsiEnabled", SETTINGS.rsiEnabled));
+      $(`#chartMfi-${tfKey}`).prop("checked", !!getChartSetting(tfKey, "mfiEnabled", SETTINGS.mfiEnabled));
+      $(`#chartMacd-${tfKey}`).prop("checked", !!getChartSetting(tfKey, "macdEnabled", SETTINGS.macdEnabled));
+      $(`#chartSupertrend-${tfKey}`).prop("checked", !!getChartSetting(tfKey, "supertrendEnabled", SETTINGS.supertrendEnabled));
+      $(`#chartSupertrendPeriod-${tfKey}`).val(getChartSetting(tfKey, "supertrendPeriod", SETTINGS.supertrendPeriod));
     });
   }
 
@@ -1740,7 +1833,8 @@ function candleColors() {
     const full = candleCache[tfKey];
     if (!full || !full.length) return;
 
-    const n = SETTINGS.barCount > 0 ? SETTINGS.barCount : full.length;
+    const chartBarCount = Number(getChartSetting(tfKey, "barCount", SETTINGS.barCount)) || 0;
+    const n = chartBarCount > 0 ? chartBarCount : full.length;
     const bars = full.slice(-n);
     if (!bars.length) { setPanelState(tfKey, "empty", "No candles in range"); return; }
 
@@ -1773,17 +1867,23 @@ function candleColors() {
       .map((p) => ({ time: p.time, value: X(p.value) }));
     c.smaSeries.setData(smaWin);
 
-    if (SETTINGS.supertrendEnabled) {
-      const stWin = sliceToWindow(computeSuperTrend(full, SETTINGS.supertrendPeriod, SUPER_TREND_MULTIPLIER), windowStart)
+    const isSupertrendEnabled = !!getChartSetting(tfKey, "supertrendEnabled", SETTINGS.supertrendEnabled);
+    const supertrendPeriod = Number(getChartSetting(tfKey, "supertrendPeriod", SETTINGS.supertrendPeriod)) || SETTINGS.supertrendPeriod || 5;
+    if (isSupertrendEnabled) {
+      const stWin = sliceToWindow(computeSuperTrend(full, supertrendPeriod, SUPER_TREND_MULTIPLIER), windowStart)
         .map((p) => ({ time: p.time, value: X(p.value), color: p.color }));
       c.stSeries.setData(stWin);
     } else {
       c.stSeries.setData([]);
     }
 
+    const rsiEnabled = !!getChartSetting(tfKey, "rsiEnabled", SETTINGS.rsiEnabled);
+    const mfiEnabled = !!getChartSetting(tfKey, "mfiEnabled", SETTINGS.mfiEnabled);
+    const macdEnabled = !!getChartSetting(tfKey, "macdEnabled", SETTINGS.macdEnabled);
+
     let rsiValues = [];
     let rsiWin = [];
-    if (SETTINGS.rsiEnabled) {
+    if (rsiEnabled) {
       rsiValues = computeRSI(full, RSI_PERIOD);
       rsiWin = sliceToWindow(rsiValues, windowStart);
       c.rsiSeries.setData(rsiWin);
@@ -1792,7 +1892,7 @@ function candleColors() {
     }
 
     let mfiWin = [];
-    if (SETTINGS.mfiEnabled) {
+    if (mfiEnabled) {
       mfiWin = sliceToWindow(computeMFI(full, MFI_PERIOD), windowStart);
       c.mfiSeries.setData(mfiWin);
     } else {
@@ -1800,7 +1900,7 @@ function candleColors() {
     }
 
     let macdWin = [], sigWin = [], histWin = [];
-    if (SETTINGS.macdEnabled) {
+    if (macdEnabled) {
       const macdRes = computeMACD(full, MACD_FAST, MACD_SLOW, MACD_SIGNAL);
       macdWin = sliceToWindow(macdRes.macd, windowStart);
       sigWin = sliceToWindow(macdRes.signal, windowStart);
@@ -1848,22 +1948,22 @@ function candleColors() {
     );
 
     const $chipRsi = $(`#chip-rsi-${tfKey}`);
-    if (SETTINGS.rsiEnabled && rsiWin.length) {
+    if (rsiEnabled && rsiWin.length) {
       $chipRsi.html(`RSI ${fmt(rsiWin[rsiWin.length - 1].value)}`).css("display", "");
     } else {
       $chipRsi.empty().css("display", "none");
     }
 
     const $chipMfi = $(`#chip-mfi-${tfKey}`);
-    if (SETTINGS.mfiEnabled && mfiWin.length) {
+    if (mfiEnabled && mfiWin.length) {
       $chipMfi.html(`MFI <b>${fmt(mfiWin[mfiWin.length - 1].value)}</b>`)
-        .css({ display: "", marginTop: SETTINGS.rsiEnabled ? "14px" : "0" });
+        .css({ display: "", marginTop: rsiEnabled ? "14px" : "0" });
     } else {
       $chipMfi.empty().css({ display: "none", marginTop: "0" });
     }
 
     const $chipMacd = $(`#chip-macd-${tfKey}`);
-    if (SETTINGS.macdEnabled && macdWin.length && sigWin.length) {
+    if (macdEnabled && macdWin.length && sigWin.length) {
       $chipMacd.html(`MACD ${fmt(macdWin[macdWin.length - 1].value)}/${fmt(sigWin[sigWin.length - 1].value)}`).css("display", "");
     } else {
       $chipMacd.empty().css("display", "none");
@@ -2017,7 +2117,8 @@ function candleColors() {
     canvas.height = Math.max(1, Math.round(height * dpr));
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, width, height);
-    if (!SETTINGS.rsiEnabled || !width || !height) return;
+    const rsiEnabled = !!getChartSetting(tfKey, "rsiEnabled", SETTINGS.rsiEnabled);
+    if (!rsiEnabled || !width || !height) return;
 
     const bars = chartState.divergenceBars;
     const rsiValues = chartState.divergenceValues;
