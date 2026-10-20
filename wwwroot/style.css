@@ -1242,38 +1242,45 @@ kbd{
 }
 .settings-input:focus{ border-color:var(--amber); }
 
-.chart-config-row{
-  display:grid;
-  grid-template-columns:62px minmax(0,1fr);
-  align-items:center;
-  gap:7px;
+.chart-config-table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
 }
-.chart-config-row + .chart-config-row{
-  margin-top:4px;
-  padding-top:5px;
+.chart-config-name-col{ width:19%; }
+.chart-config-bars-col{ width:17%; }
+.chart-config-check-col{ width:10%; }
+.chart-config-macd-col{ width:14%; }
+.chart-config-period-col{ width:20%; }
+.chart-config-table th,.chart-config-table td{
+  padding:4px 2px;
+  text-align:center;
+}
+.chart-config-table thead th{
+  color:var(--text-faint);
+  font:700 9px/1.2 var(--font-ui);
+  white-space:nowrap;
+}
+.chart-config-table tbody tr{
   border-top:1px solid var(--border);
 }
-.chart-config-head{
+.chart-config-table tbody th{
   color:var(--text);
-  font:700 10.5px/1.3 var(--font-ui);
+  font:700 10px/1.3 var(--font-ui);
+  text-align:left;
+  white-space:nowrap;
 }
-.chart-config-controls{
-  display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  gap:4px 8px;
+.chart-config-table .settings-input{
+  width:100%;
+  max-width:52px;
+  box-sizing:border-box;
+  padding:4px 5px;
+  font-size:10px;
 }
-.chart-config-field,.chart-config-check{
-  display:inline-flex;
-  align-items:center;
-  gap:3px;
-  color:var(--text);
-  font:600 10px/1.3 var(--font-ui);
+.chart-config-toggle{
+  margin:0;
 }
-.chart-config-field .settings-input{ width:72px; }
-.chart-config-field.compact .settings-input{ width:58px; }
-.chart-config-toggle{ margin:0; }
-.chart-config-controls input[type="checkbox"]{
+.chart-config-table input[type="checkbox"]{
   width:13px;
   height:13px;
   accent-color:var(--amber);
