@@ -295,8 +295,8 @@
       <button class="settings-close" id="settingsClose">✕</button>
     </div>
     <div class="settings-body">
-      <div class="settings-section">
-        <h4>Visible charts</h4>
+      <details class="settings-section">
+        <summary>Visible charts</summary>
         <div class="checkbox-grid visible-chart-grid">
           <label class="checkbox-item" data-tf="D">
             <input type="checkbox" class="panel-toggle" data-tf="D" checked>
@@ -319,9 +319,9 @@
             <span class="chip-dot"></span>
           </label>
         </div>
-      </div>
-      <div class="settings-section">
-        <h4>Chart layout</h4>
+      </details>
+      <details class="settings-section">
+        <summary>Chart layout</summary>
         <div class="settings-row">
           <div>
             <div class="row-label">Grid columns</div>
@@ -335,9 +335,9 @@
             <option value="4">4 columns</option>
           </select>
         </div>
-      </div>
-      <div class="settings-section">
-        <h4>Appearance</h4>
+      </details>
+      <details class="settings-section">
+        <summary>Appearance</summary>
         <div class="settings-row">
           <span class="row-label">Theme</span>
           <div class="segmented" id="themeSeg">
@@ -352,10 +352,10 @@
             <button data-val="spacious">Spacious</button>
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="settings-section">
-        <h4>Data Source</h4>
+      <details class="settings-section">
+        <summary>Data source</summary>
         <div class="settings-row">
           <div>
             <div class="row-label">Provider</div>
@@ -365,17 +365,10 @@
             <button data-val="yahoo" class="active">Yahoo Finance</button>
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="settings-section">
-        <h4>Chart data</h4>
-        <div class="settings-row">
-          <div>
-            <div class="row-label">Bars per chart</div>
-            <div class="row-hint">Most recent candles shown</div>
-          </div>
-          <input type="number" id="barCountInput" class="settings-input" min="20" max="2000" step="10" value="90">
-        </div>
+      <details class="settings-section">
+        <summary>Chart data</summary>
         <div class="settings-row">
           <div>
             <div class="row-label">Analysis data points</div>
@@ -415,10 +408,10 @@
             <option value="first">First visible bar = 0%</option>
           </select>
         </div>
-      </div>
+      </details>
 
-      <div class="settings-section">
-        <h4>Indicators</h4>
+      <details class="settings-section" open>
+        <summary>Indicators</summary>
         <div class="settings-row">
           <div>
             <div class="row-label">SMA (5)</div>
@@ -447,57 +440,8 @@
           </div>
           <input type="number" id="volumeProfileBinsInput" class="settings-input" min="8" max="64" step="1" value="24">
         </div>
-        <div class="settings-row">
-          <div>
-            <div class="row-label">Supertrend</div>
-            <div class="row-hint">Trailing trend line (ATR period below)</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="supertrendToggle">
-            <span class="track"></span>
-            <span class="thumb"></span>
-          </label>
-        </div>
-        <div class="settings-row">
-          <div>
-            <div class="row-label">Supertrend period</div>
-            <div class="row-hint">ATR lookback (default 5)</div>
-          </div>
-          <input type="number" id="supertrendPeriodInput" class="settings-input" min="1" max="50" step="1" value="5">
-        </div>
-        <div class="settings-row">
-          <div>
-            <div class="row-label">RSI (14)</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="rsiToggle" checked>
-            <span class="track"></span>
-            <span class="thumb"></span>
-          </label>
-        </div>
-        <div class="settings-row">
-          <div>
-            <div class="row-label">MACD</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="macdToggle" checked>
-            <span class="track"></span>
-            <span class="thumb"></span>
-          </label>
-        </div>
-        <div class="settings-row">
-          <div>
-            <div class="row-label">MFI (14)</div>
-            <div class="row-hint">Money Flow Index - volume-weighted RSI</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="mfiToggle">
-            <span class="track"></span>
-            <span class="thumb"></span>
-          </label>
-        </div>
-        <div class="settings-section">
-          <h4>Chart-wise settings</h4>
+        <details class="settings-section chart-wise-section" open>
+          <summary>Chart-wise settings</summary>
           <div class="chart-config-row" data-tf="D">
             <div class="chart-config-head">Daily</div>
             <div class="chart-config-controls">
@@ -542,7 +486,7 @@
               <label class="chart-config-field compact"><span>ST</span><input type="number" id="chartSupertrendPeriod-H" class="settings-input chart-config-input" data-type="supertrendPeriod" min="1" max="50" step="1"></label>
             </div>
           </div>
-        </div>
+        </details>
         <div class="settings-row">
           <div>
             <div class="row-label">Candlestick patterns</div>
@@ -573,10 +517,10 @@
             <span class="thumb"></span>
           </label>
         </div>
-      </div>
+      </details>
 
-      <div class="settings-section">
-        <h4>Behavior</h4>
+      <details class="settings-section">
+        <summary>Behavior</summary>
         <div class="settings-row">
           <div>
             <div class="row-label">Load Nifty 50 on start</div>
@@ -587,7 +531,7 @@
             <span class="thumb"></span>
           </label>
         </div>
-      </div>
+      </details>
 
     </div>
   </div>
