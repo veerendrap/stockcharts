@@ -52,6 +52,7 @@
     priceDecimals: 0,
     axisMode: "price", // "price" (default) | "percent" change
     percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
+    xAxisLabelsEnabled: false,
     analysisPoints: 150, // history depth used for win-rate/analysis (display still shows barCount)
     smaEnabled: true,
     volumeProfileEnabled: true,
@@ -724,6 +725,15 @@
     updateGridLayout();
   });
 
+  $("#xAxisLabelsToggle").on("change", function () {
+    SETTINGS.xAxisLabelsEnabled = $(this).is(":checked");
+    saveSettings();
+    TIMEFRAMES.forEach((tf) => {
+      const chartState = charts[tf.key];
+      if (chartState) chartState.chart.applyOptions({ timeScale: { visible: SETTINGS.xAxisLabelsEnabled } });
+    });
+  });
+
   $("#syncNowBtn").on("click", function () { syncSymbols(STOCKS); });
   $("#syncPendingBtn").on("click", function () { syncPendingSymbols(STOCKS); });
   $("#stopSyncBtn").on("click", function () {
@@ -995,6 +1005,7 @@ function candleColors() {
       leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
+        visible: SETTINGS.xAxisLabelsEnabled,
         timeVisible: true,
         secondsVisible: false,
         barSpacing: 4,
@@ -1256,6 +1267,7 @@ function candleColors() {
     setSegActive("#axisModeSeg", SETTINGS.axisMode);
     $("#analysisPointsInput").val(SETTINGS.analysisPoints);
     $("#rememberSymbolToggle").prop("checked", !!SETTINGS.rememberSelectedSymbol);
+    $("#xAxisLabelsToggle").prop("checked", !!SETTINGS.xAxisLabelsEnabled);
     $("#decimalsSelect").val(String(SETTINGS.priceDecimals));
     $("#percentBaseSelect").val(SETTINGS.percentBase);
     $("#smaToggle").prop("checked", SETTINGS.smaEnabled);
