@@ -740,7 +740,12 @@
     saveSettings();
     TIMEFRAMES.forEach((tf) => {
       const chartState = charts[tf.key];
-      if (chartState) chartState.chart.applyOptions({ rightPriceScale: { visible: SETTINGS.yAxisLabelsEnabled } });
+      if (chartState) {
+        chartState.series.priceScale().applyOptions({
+          visible: SETTINGS.yAxisLabelsEnabled,
+          borderVisible: SETTINGS.yAxisLabelsEnabled
+        });
+      }
     });
   });
 
@@ -1011,7 +1016,12 @@ function candleColors() {
         fontSize: isMobile ? 8 : 9
       },
       grid: { vertLines: { color: border, visible: false }, horzLines: { color: border, visible: false } },
-      rightPriceScale: { visible: SETTINGS.yAxisLabelsEnabled, borderColor: border, scaleMargins: { top: 0.05, bottom: 0.05 } },
+      rightPriceScale: {
+        visible: SETTINGS.yAxisLabelsEnabled,
+        borderVisible: SETTINGS.yAxisLabelsEnabled,
+        borderColor: border,
+        scaleMargins: { top: 0.05, bottom: 0.05 }
+      },
       leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
