@@ -27,6 +27,7 @@
   ];
 
   const SMA_PERIOD = 5;
+  const MIN_HIT_RATE_ANALYSIS_BARS = 151;
   const RELATIVE_VOLUME_ICON = "▂▅█";
   const RSI_PERIOD = 14;
   const MFI_PERIOD = 14;
@@ -54,7 +55,7 @@
     percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
     xAxisLabelsEnabled: false,
     yAxisLabelsEnabled: true,
-    analysisPoints: 150, // history depth used for win-rate/analysis (display still shows barCount)
+    analysisPoints: 180, // history depth used for win-rate/analysis (display still shows barCount)
     smaEnabled: true,
     volumeProfileEnabled: true,
     volumeProfileBins: 24,
@@ -1905,7 +1906,9 @@ function candleColors() {
 
     if (["M", "W", "D"].includes(tfKey) && window.StockPrediction) {
       const analysisDepth = Number(SETTINGS.analysisPoints) || 0;
-      const analysisWin = analysisDepth > 0 ? full.slice(-analysisDepth) : full;
+      const analysisWin = analysisDepth > 0
+        ? full.slice(-Math.max(analysisDepth, MIN_HIT_RATE_ANALYSIS_BARS))
+        : full;
       StockPrediction.update(
         currentStock, analysisWin, c, tfKey, filtered, quoteCache,
         SETTINGS.winRateHeaderValuesEnabled, SETTINGS.winRateChartLinesEnabled
@@ -2151,7 +2154,11 @@ function candleColors() {
       : Math.max(...TIMEFRAMES.map((tf) =>
         Number(getChartSetting(tf.key, "barCount", DEFAULT_CHART_SETTINGS.barCount)) || 0
       ));
-    return (Math.max(chartBars, Number(SETTINGS.analysisPoints) || 0) || 80) + 4;
+    const analysisBars = Number(SETTINGS.analysisPoints) || 0;
+    const minimumAnalysisBars = analysisBars > 0
+      ? Math.max(analysisBars, MIN_HIT_RATE_ANALYSIS_BARS)
+      : 0;
+    return (Math.max(chartBars, minimumAnalysisBars) || 80) + 4;
   }
 
   // Changing the bar count doesn't always need a re-fetch: if the cached
