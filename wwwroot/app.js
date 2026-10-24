@@ -53,6 +53,7 @@
     axisMode: "price", // "price" (default) | "percent" change
     percentBase: "current", // % axis base: "current" (last close = 0%) | "first" (first visible bar = 0%)
     xAxisLabelsEnabled: false,
+    yAxisLabelsEnabled: true,
     analysisPoints: 150, // history depth used for win-rate/analysis (display still shows barCount)
     smaEnabled: true,
     volumeProfileEnabled: true,
@@ -733,6 +734,15 @@
     });
   });
 
+  $("#yAxisLabelsToggle").on("change", function () {
+    SETTINGS.yAxisLabelsEnabled = $(this).is(":checked");
+    saveSettings();
+    TIMEFRAMES.forEach((tf) => {
+      const chartState = charts[tf.key];
+      if (chartState) chartState.chart.applyOptions({ rightPriceScale: { visible: SETTINGS.yAxisLabelsEnabled } });
+    });
+  });
+
   $("#syncNowBtn").on("click", function () { syncSymbols(STOCKS); });
   $("#syncPendingBtn").on("click", function () { syncPendingSymbols(STOCKS); });
   $("#stopSyncBtn").on("click", function () {
@@ -1000,7 +1010,7 @@ function candleColors() {
         fontSize: isMobile ? 8 : 9
       },
       grid: { vertLines: { color: border, visible: false }, horzLines: { color: border, visible: false } },
-      rightPriceScale: { borderColor: border, scaleMargins: { top: 0.05, bottom: 0.05 } },
+      rightPriceScale: { visible: SETTINGS.yAxisLabelsEnabled, borderColor: border, scaleMargins: { top: 0.05, bottom: 0.05 } },
       leftPriceScale: { visible: false },
       timeScale: {
         borderColor: border,
@@ -1008,6 +1018,7 @@ function candleColors() {
         timeVisible: true,
         secondsVisible: false,
         barSpacing: 4,
+        rightOffset: 2,
         tickMarkPadding: 2,
         tickMarkFormatter: (time) => { if (!time) return ""; const d = new Date(time * 1000); return isMobile ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString(); }
       },
@@ -1267,6 +1278,7 @@ function candleColors() {
     $("#analysisPointsInput").val(SETTINGS.analysisPoints);
     $("#rememberSymbolToggle").prop("checked", !!SETTINGS.rememberSelectedSymbol);
     $("#xAxisLabelsToggle").prop("checked", !!SETTINGS.xAxisLabelsEnabled);
+    $("#yAxisLabelsToggle").prop("checked", !!SETTINGS.yAxisLabelsEnabled);
     $("#decimalsSelect").val(String(SETTINGS.priceDecimals));
     $("#percentBaseSelect").val(SETTINGS.percentBase);
     $("#smaToggle").prop("checked", SETTINGS.smaEnabled);
