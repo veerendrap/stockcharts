@@ -69,6 +69,7 @@
     winRateHeaderValuesEnabled: true,
     winRateChartLinesEnabled: false,
     chartColumns: 0, // "0" = responsive (web 2 / mobile 1) | "1".."4" = forced columns
+    chartHeight: 0, // "0" = fit available height; positive values set each chart panel height in pixels (minimum 100)
     autoLoadNifty: true,
     rememberSelectedSymbol: true,
     indexUniverse: "nifty500",
@@ -726,6 +727,19 @@
     updateGridLayout();
   });
 
+  $("#chartHeightInput").on("change", function () {
+    const value = $(this).val();
+    const height = Number(value);
+    SETTINGS.chartHeight = value === ""
+      ? 0
+      : Number.isFinite(height)
+        ? Math.max(100, Math.floor(height))
+        : 100;
+    $(this).val(SETTINGS.chartHeight || "");
+    saveSettings();
+    updateGridLayout();
+  });
+
   $("#xAxisLabelsToggle").on("change", function () {
     SETTINGS.xAxisLabelsEnabled = $(this).is(":checked");
     saveSettings();
@@ -1145,19 +1159,32 @@ function candleColors() {
   function updateGridLayout() {
     const visibleCount = TIMEFRAMES.filter((tf) => SETTINGS.visible[tf.key]).length || 1;
     const chosen = SETTINGS.chartColumns || 0;
+    const chartHeight = Math.max(0, parseInt(SETTINGS.chartHeight, 10) || 0);
     const cols = chosen > 0 ? Math.min(chosen, visibleCount) : visibleCount <= 1 ? 1 : 2;
     const rows = Math.ceil(visibleCount / cols);
+    const rowTracks = chartHeight > 0
+      ? `repeat(${rows}, ${chartHeight}px)`
+      : `repeat(${rows}, 1fr)`;
     const gridStyle = $("#chartGrid")[0].style;
+    if (chartHeight > 0) {
+      gridStyle.setProperty("height", "auto");
+      gridStyle.setProperty("min-height", "0");
+      gridStyle.setProperty("grid-auto-rows", `${chartHeight}px`);
+    } else {
+      gridStyle.removeProperty("height");
+      gridStyle.removeProperty("min-height");
+      gridStyle.removeProperty("grid-auto-rows");
+    }
     if (chosen > 0) {
       // Forced layout must beat the responsive single-column media query.
       gridStyle.setProperty("grid-template-columns", `repeat(${cols}, 1fr)`, "important");
-      gridStyle.setProperty("grid-template-rows", `repeat(${rows}, 1fr)`, "important");
+      gridStyle.setProperty("grid-template-rows", rowTracks, "important");
     } else {
       gridStyle.removeProperty("grid-template-columns");
       gridStyle.removeProperty("grid-template-rows");
       $("#chartGrid").css({
         "grid-template-columns": `repeat(${cols}, 1fr)`,
-        "grid-template-rows": `repeat(${rows}, 1fr)`
+        "grid-template-rows": rowTracks
       });
     }
   }
@@ -1173,6 +1200,10 @@ function candleColors() {
       saved = raw ? JSON.parse(raw) : null;
     } catch (e) { saved = null; }
     const merged = Object.assign({}, DEFAULT_SETTINGS, saved || {});
+    const chartHeight = parseInt(merged.chartHeight, 10);
+    merged.chartHeight = Number.isFinite(chartHeight) && chartHeight > 0
+      ? Math.max(100, chartHeight)
+      : 0;
     merged.chartSettings = normalizeChartSettings(merged.chartSettings || {});
     TIMEFRAMES.forEach((tf) => {
       const chartConfig = merged.chartSettings[tf.key] || (merged.chartSettings[tf.key] = {});
@@ -1287,6 +1318,7 @@ function candleColors() {
     setSegActive("#densitySeg", SETTINGS.density);
     setSegActive("#axisModeSeg", SETTINGS.axisMode);
     $("#analysisPointsInput").val(SETTINGS.analysisPoints);
+    $("#chartHeightInput").val(SETTINGS.chartHeight || "");
     $("#rememberSymbolToggle").prop("checked", !!SETTINGS.rememberSelectedSymbol);
     $("#xAxisLabelsToggle").prop("checked", !!SETTINGS.xAxisLabelsEnabled);
     $("#yAxisLabelsToggle").prop("checked", !!SETTINGS.yAxisLabelsEnabled);

@@ -336,6 +336,15 @@
           </select>
         </div>
         <div class="settings-row">
+          <div>
+            <label class="row-label" for="chartHeightInput">Chart height</label>
+            <div class="row-hint">Leave blank for Auto; minimum 100 px</div>
+          </div>
+          <input id="chartHeightInput" class="settings-input" type="number" min="100" step="1"
+                 placeholder="Auto" title="Chart height per panel in pixels (minimum 100)"
+                 aria-label="Chart height in pixels; leave blank for Auto">
+        </div>
+        <div class="settings-row">
           <span class="row-label">Show X-axis labels</span>
           <label class="toggle-switch">
             <input type="checkbox" id="xAxisLabelsToggle">
