@@ -791,6 +791,7 @@
           visible: SETTINGS.yAxisLabelsEnabled,
           borderVisible: SETTINGS.yAxisLabelsEnabled
         });
+        drawVolumeProfile(tf.key);
       }
     });
   });
@@ -2109,13 +2110,14 @@ function candleColors() {
     const pointOfControlPrice = minPrice + (pointOfControl + 0.5) * step;
     const pointOfControlY = chartState.series.priceToCoordinate(transformPrice(pointOfControlPrice));
     if (pointOfControlY != null) {
+      const rightAxisWidth = SETTINGS.yAxisLabelsEnabled ? chartState.series.priceScale().width() : 0;
       context.globalAlpha = 0.9;
       context.strokeStyle = cssVar("--up");
       context.lineWidth = 1.5;
       context.setLineDash([5, 3]);
       context.beginPath();
       context.moveTo(0, pointOfControlY);
-      context.lineTo(Math.max(maxWidth + 8, width - 56), pointOfControlY);
+      context.lineTo(Math.max(maxWidth + 8, width - rightAxisWidth), pointOfControlY);
       context.stroke();
       context.setLineDash([]);
     }
