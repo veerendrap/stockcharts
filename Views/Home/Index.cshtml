@@ -82,14 +82,6 @@
         </optgroup>
       </select>
       <div class="market-breadth" aria-label="Selected index advance and decline summary">
-        <div class="breadth-heading">
-          <span>Index breadth</span>
-          <strong id="breadthIndex">NIFTY 500</strong>
-        </div>
-        <div class="breadth-ratio">
-          <span>Advance / decline</span>
-          <strong id="breadthRatio">--</strong>
-        </div>
         <div class="breadth-bar" role="img" aria-label="Advance, decline, and unchanged constituents">
           <span class="breadth-bar-advance" id="breadthAdvanceBar"></span>
           <span class="breadth-bar-decline" id="breadthDeclineBar"></span>
@@ -100,11 +92,8 @@
           <span class="breadth-decline"><b id="breadthDeclines">0</b> Dec</span>
           <span class="breadth-flat"><b id="breadthUnchanged">0</b> Flat</span>
         </div>
-        <div id="breadthStatus" class="breadth-status" aria-live="polite">Waiting for quote data</div>
       </div>
     </label>
-    <div id="indexLoadStatus" class="index-load-status" aria-live="polite"></div>
-
     <div class="search-wrap">
       <input type="text" id="searchInput" class="search-input" placeholder="Search symbol, company, or type any ticker…" autocomplete="off">
       <button type="button" id="addSymbolBtn" class="add-symbol-btn" title="Add typed symbol and load its charts + analysis">+ Add symbol</button>
