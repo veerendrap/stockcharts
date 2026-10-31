@@ -421,6 +421,21 @@ html:fullscreen .app{
 .sync-btn.stop{ width:28px; padding:5px 0; background:var(--down); color:#fff; border-color:var(--down); font-size:11px; }
 .sync-btn:hover{ filter:brightness(1.08); }
 .sync-btn:disabled{ opacity:.45; cursor:not-allowed; }
+.sync-indicator{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px;
+  height:18px;
+  opacity:0;
+  transition:opacity .15s ease;
+}
+.sync-indicator.visible{ opacity:1; }
+.sync-indicator .spinner.small{
+  width:12px;
+  height:12px;
+  border-width:2px;
+}
 .sync-summary{ margin-left:auto; color:var(--text-faint); font:9px var(--font-mono); }
 
 .pinned-row{

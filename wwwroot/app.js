@@ -458,6 +458,7 @@
     const total = STOCKS.length;
     const synced = STOCKS.filter((stock) => getSyncStatus(stock.s) === "synced").length;
     $("#syncSummary").text(total ? `${synced}/${total} synced` : "");
+    $("#syncIndicator").toggleClass("visible", syncInProgress);
     $("#syncNowBtn, #syncPendingBtn").prop("disabled", syncInProgress || !total);
     $("#stopSyncBtn").prop("disabled", !syncInProgress);
   }
