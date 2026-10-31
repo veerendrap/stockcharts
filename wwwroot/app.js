@@ -180,6 +180,7 @@
     }
 
     STOCKS = data.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
+    updateMarketBreadth();
     renderList(STOCKS, "");
     refreshFilteredList();
     syncPendingSymbols(STOCKS);
@@ -211,6 +212,7 @@
       SETTINGS.indexUniverse = index;
       saveSettings();
       STOCKS = stocks.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
+      updateMarketBreadth();
       $("#indexLoadStatus").text(`${$("#indexSelect option:selected").text()}: ${STOCKS.length} constituents`);
       renderList(STOCKS, "");
       refreshFilteredList();
@@ -297,6 +299,34 @@
   function getQuoteMeta(stock) {
     if (!stock) return null;
     return quoteCache[stock.s] || quoteCache[stock.s.toUpperCase()] || quoteCache[stock.s.toLowerCase()] || null;
+  }
+
+  function updateMarketBreadth() {
+    let advances = 0;
+    let declines = 0;
+    let unchanged = 0;
+    let quoted = 0;
+
+    STOCKS.forEach((stock) => {
+      const meta = getQuoteMeta(stock);
+      if (!meta || !Number.isFinite(meta.changePct)) return;
+      quoted++;
+      if (meta.changePct > 0) advances++;
+      else if (meta.changePct < 0) declines++;
+      else unchanged++;
+    });
+
+    const total = advances + declines + unchanged;
+    const ratio = !quoted ? "--" : declines ? `${(advances / declines).toFixed(2)}:1` : advances ? "All advancing" : "No declines";
+    $("#breadthIndex").text($("#indexSelect option:selected").text());
+    $("#breadthRatio").text(ratio);
+    $("#breadthAdvances").text(advances);
+    $("#breadthDeclines").text(declines);
+    $("#breadthUnchanged").text(unchanged);
+    $("#breadthAdvanceBar").css("width", total ? `${(advances / total) * 100}%` : "0%");
+    $("#breadthDeclineBar").css("width", total ? `${(declines / total) * 100}%` : "0%");
+    $("#breadthFlatBar").css("width", total ? `${(unchanged / total) * 100}%` : "0%");
+    $("#breadthStatus").text(quoted ? `${quoted} of ${STOCKS.length} constituents have quote data` : "Waiting for quote data");
   }
 
   function applySort(list) {
@@ -528,6 +558,7 @@
 
     filtered = applySort(next);
     filtered.forEach((stock) => { stock.syncStatus = getSyncStatus(stock.s); });
+    updateMarketBreadth();
     renderList(filtered, q);
     updateListMeta();
 
@@ -2746,6 +2777,7 @@ function candleColors() {
           quoteCache[resolved] = payload;
           quoteCache[resolved.toUpperCase()] = payload;
           quoteCache[resolved.toLowerCase()] = payload;
+          updateMarketBreadth();
           setSyncStatus(stock.s, "synced");
           updateRowSyncBadge(stock.s, "synced");
         } catch (err) {
