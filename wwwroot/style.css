@@ -220,8 +220,14 @@ html:fullscreen .app{
   text-transform:uppercase;
   letter-spacing:.04em;
 }
+.universe-row{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
 .universe-select{
-  width:100%;
+  flex:1;
+  width:0;
   min-width:0;
   padding:7px 8px;
   border:1px solid var(--border);
@@ -232,6 +238,7 @@ html:fullscreen .app{
 }
 .universe-select:focus-visible{ outline:2px solid var(--amber); outline-offset:1px; }
 .universe-select:disabled{ opacity:.65; }
+.universe-row .icon-btn:disabled{ opacity:.45; cursor:not-allowed; }
 .index-load-status{
   min-height:0;
   padding:0 9px;

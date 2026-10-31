@@ -45,8 +45,8 @@
       <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
     </div>
 
-    <label class="universe-select-wrap">
-      <span>Market index</span>
+    <div class="universe-select-wrap">
+      <label for="indexSelect">Market index</label>
       <div class="universe-row">
         <select id="indexSelect" class="universe-select" aria-label="Select market index">
           <optgroup label="Broad market">
@@ -79,23 +79,25 @@
             <option value="niftypsubank">NIFTY PSU Bank</option>
           </optgroup>
         </select>
-        <section class="market-breadth" aria-label="Selected index advance and decline summary">
-          <div class="breadth-heading"><span>Index breadth</span><strong id="breadthIndex">NIFTY 500</strong></div>
-          <div class="breadth-ratio"><span>Advance / decline</span><strong id="breadthRatio">--</strong></div>
-          <div class="breadth-bar" role="img" aria-label="Advance, decline, and unchanged constituents">
-            <span class="breadth-bar-advance" id="breadthAdvanceBar"></span>
-            <span class="breadth-bar-decline" id="breadthDeclineBar"></span>
-            <span class="breadth-bar-flat" id="breadthFlatBar"></span>
-          </div>
-          <div class="breadth-counts">
-            <span class="breadth-advance"><b id="breadthAdvances">0</b> Adv</span>
-            <span class="breadth-decline"><b id="breadthDeclines">0</b> Dec</span>
-            <span class="breadth-flat"><b id="breadthUnchanged">0</b> Flat</span>
-          </div>
-          <div id="breadthStatus" class="breadth-status" aria-live="polite">Waiting for quote data</div>
-        </section>
+        <button type="button" class="icon-btn" id="previousIndexBtn" aria-label="Previous market index" title="Previous market index">‹</button>
+        <button type="button" class="icon-btn" id="nextIndexBtn" aria-label="Next market index" title="Next market index">›</button>
       </div>
-    </label>
+      <section class="market-breadth" aria-label="Selected index advance and decline summary">
+        <div class="breadth-heading"><span>Index breadth</span><strong id="breadthIndex">NIFTY 500</strong></div>
+        <div class="breadth-ratio"><span>Advance / decline</span><strong id="breadthRatio">--</strong></div>
+        <div class="breadth-bar" role="img" aria-label="Advance, decline, and unchanged constituents">
+          <span class="breadth-bar-advance" id="breadthAdvanceBar"></span>
+          <span class="breadth-bar-decline" id="breadthDeclineBar"></span>
+          <span class="breadth-bar-flat" id="breadthFlatBar"></span>
+        </div>
+        <div class="breadth-counts">
+          <span class="breadth-advance"><b id="breadthAdvances">0</b> Adv</span>
+          <span class="breadth-decline"><b id="breadthDeclines">0</b> Dec</span>
+          <span class="breadth-flat"><b id="breadthUnchanged">0</b> Flat</span>
+        </div>
+        <div id="breadthStatus" class="breadth-status" aria-live="polite">Waiting for quote data</div>
+      </section>
+    </div>
     <div id="indexLoadStatus" class="index-load-status" aria-live="polite"></div>
 
     <div class="search-wrap">

@@ -48,9 +48,10 @@
       <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
     </div>
 
-    <label class="universe-select-wrap">
-      <span>Market index</span>
-      <select id="indexSelect" class="universe-select" aria-label="Select market index">
+    <div class="universe-select-wrap">
+      <label for="indexSelect">Market index</label>
+      <div class="universe-row">
+        <select id="indexSelect" class="universe-select" aria-label="Select market index">
         <optgroup label="Broad market">
           <option value="nifty50">NIFTY 50</option>
           <option value="niftynext50">NIFTY Next 50</option>
@@ -80,7 +81,10 @@
           <option value="niftyenergy">NIFTY Energy</option>
           <option value="niftypsubank">NIFTY PSU Bank</option>
         </optgroup>
-      </select>
+        </select>
+        <button type="button" class="icon-btn" id="previousIndexBtn" aria-label="Previous market index" title="Previous market index">‹</button>
+        <button type="button" class="icon-btn" id="nextIndexBtn" aria-label="Next market index" title="Next market index">›</button>
+      </div>
       <div class="market-breadth" aria-label="Selected index advance and decline summary">
         <div class="breadth-bar" role="img" aria-label="Advance, decline, and unchanged constituents">
           <span class="breadth-bar-advance" id="breadthAdvanceBar"></span>
@@ -93,7 +97,7 @@
           <span class="breadth-flat"><b id="breadthUnchanged">0</b> Flat</span>
         </div>
       </div>
-    </label>
+    </div>
     <div class="search-wrap">
       <input type="text" id="searchInput" class="search-input" placeholder="Search symbol, company, or type any ticker…" autocomplete="off">
       <button type="button" id="addSymbolBtn" class="add-symbol-btn" title="Add typed symbol and load its charts + analysis">+ Add symbol</button>

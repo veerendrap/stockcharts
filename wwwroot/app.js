@@ -137,6 +137,7 @@
     // local server required.
     $("#sortSelect").val(SETTINGS.sortMode || "change");
     $("#indexSelect").val(SETTINGS.indexUniverse || "nifty500");
+    updateIndexNavigation();
     bindSignalValues();
     updateFilterUI();
     $("#chartColumnsSelect").val(String(SETTINGS.chartColumns || 0));
@@ -160,6 +161,7 @@
     } catch (error) {
       if (index !== "nifty500") {
         $("#indexSelect").val("nifty500");
+        updateIndexNavigation();
         SETTINGS.indexUniverse = "nifty500";
         saveSettings();
         $("#indexLoadStatus").text(`Could not load ${$("#indexSelect option[value='" + index + "']").text()}; using NIFTY 500.`);
@@ -200,11 +202,27 @@
     return symbols;
   }
 
+  function updateIndexNavigation() {
+    const select = $("#indexSelect");
+    const selectedIndex = select.prop("selectedIndex");
+    const disabled = select.prop("disabled");
+    $("#previousIndexBtn").prop("disabled", disabled || selectedIndex <= 0);
+    $("#nextIndexBtn").prop("disabled", disabled || selectedIndex >= select[0].options.length - 1);
+  }
+
+  function navigateIndex(direction) {
+    const select = $("#indexSelect");
+    const nextIndex = select.prop("selectedIndex") + direction;
+    if (nextIndex < 0 || nextIndex >= select[0].options.length) return;
+    select.prop("selectedIndex", nextIndex).trigger("change");
+  }
+
   async function changeIndexUniverse(index) {
     const previousIndex = SETTINGS.indexUniverse || "nifty500";
     const previousView = activeView;
     const requestId = ++universeRequestId;
     $("#indexSelect").prop("disabled", true);
+    updateIndexNavigation();
     $("#indexLoadStatus").text(`Loading ${$("#indexSelect option:selected").text()}…`);
     try {
       const stocks = await fetchIndexSymbols(index);
@@ -227,9 +245,13 @@
     } catch (error) {
       if (requestId !== universeRequestId) return;
       $("#indexSelect").val(previousIndex);
+      updateIndexNavigation();
       $("#indexLoadStatus").text(`Could not load ${$("#indexSelect option:selected").text()}; kept the previous index.`);
     } finally {
-      if (requestId === universeRequestId) $("#indexSelect").prop("disabled", false);
+      if (requestId === universeRequestId) {
+        $("#indexSelect").prop("disabled", false);
+        updateIndexNavigation();
+      }
     }
   }
 
@@ -2862,6 +2884,12 @@ function candleColors() {
 
     $("#indexSelect").on("change", function () {
       changeIndexUniverse($(this).val());
+    });
+    $("#previousIndexBtn").on("click", function () {
+      navigateIndex(-1);
+    });
+    $("#nextIndexBtn").on("click", function () {
+      navigateIndex(1);
     });
 
     $("#menuToggle").on("click", function () {
