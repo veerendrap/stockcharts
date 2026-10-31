@@ -270,6 +270,17 @@ html:fullscreen .app{
   background:rgba(148,163,184,0.18);
   border:1px solid rgba(148,163,184,0.3);
 }
+.header-breadth-bar{
+  position:absolute;
+  left:0;
+  bottom:0;
+  z-index:1;
+  flex:none;
+  height:3px;
+  border:0;
+  border-radius:0;
+  background:rgba(148,163,184,0.18);
+}
 .breadth-bar-advance,
 .breadth-bar-decline,
 .breadth-bar-flat{
@@ -594,9 +605,10 @@ kbd{
 }
 
 .topbar{
+  position:relative;
   height:var(--header-h);
   min-height:var(--header-h);
-  border-bottom:1px solid var(--border);
+  border-bottom:0;
   display:flex;
   align-items:center;
   justify-content:space-between;

@@ -348,6 +348,9 @@
     $("#breadthAdvanceBar").css("width", total ? `${(advances / total) * 100}%` : "0%");
     $("#breadthDeclineBar").css("width", total ? `${(declines / total) * 100}%` : "0%");
     $("#breadthFlatBar").css("width", total ? `${(unchanged / total) * 100}%` : "0%");
+    $("#headerBreadthAdvanceBar").css("width", total ? `${(advances / total) * 100}%` : "0%");
+    $("#headerBreadthDeclineBar").css("width", total ? `${(declines / total) * 100}%` : "0%");
+    $("#headerBreadthFlatBar").css("width", total ? `${(unchanged / total) * 100}%` : "0%");
     $("#breadthStatus").text(quoted ? `${quoted} of ${STOCKS.length} constituents have quote data` : "Waiting for quote data");
   }
 
