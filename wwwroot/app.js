@@ -2483,7 +2483,7 @@ function candleColors() {
     const highGap = high && high > 0 ? ((last.close - high) / high) * 100 : null;
     const gapHtml = highGap == null
       ? ""
-      : `<div class="price-meta ${highGap < 0 ? "down" : highGap > 0 ? "up" : "flat"}">${highGap < 0 ? "↓" : highGap > 0 ? "↑" : "•"} ${fmtPercent(Math.abs(highGap).toFixed(1))} 52W</div>`;
+      : `<div class="price-meta ${highGap < 0 ? "down" : highGap > 0 ? "up" : "flat"}">${highGap < 0 ? "↓" : highGap > 0 ? "↑" : "•"} ${fmtPercent(Math.abs(highGap))} 52W</div>`;
     $("#priceBlock").html(gapHtml || `<div class="price-meta flat">—</div>`);
   }
 
@@ -2533,7 +2533,7 @@ function candleColors() {
 
   function fmtPercent(n) {
     if (n === null || n === undefined || isNaN(n)) return "—";
-    return `${n >= 0 ? "+" : "-"}${Math.abs(n).toFixed(2)}%`;
+    return `${n >= 0 ? "+" : "-"}${Math.abs(n).toFixed(1)}%`;
   }
 
   function fmt(n) {

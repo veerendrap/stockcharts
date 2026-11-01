@@ -5,6 +5,8 @@
    ========================================================= */
 
 :root{
+  color-scheme:light;
+
   /* ---- Light theme (default) ---- */
   --bg:        #F6F7F9;
   --panel:     #FFFFFF;
@@ -35,6 +37,7 @@
 
   --shadow:    0 16px 40px rgba(20,24,30,.14);
   --panel-shadow: 0 10px 24px rgba(180, 83, 9, 0.16);
+  --control-shadow: 0 1px 2px rgba(20,24,30,.05);
 
   --font-ui:   'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
@@ -79,6 +82,8 @@
 
   --shadow:    0 16px 40px rgba(0,0,0,.5);
   --panel-shadow: 0 10px 28px rgba(240, 185, 11, 0.2);
+  --control-shadow: 0 1px 2px rgba(0,0,0,.2);
+  color-scheme: dark;
 }
 
 :root[data-density="spacious"]{
@@ -95,10 +100,15 @@
 html,body{ height:100%; }
 body{
   margin:0;
-  background:var(--bg);
+  background:
+    radial-gradient(ellipse at 82% 4%, color-mix(in srgb,var(--amber) 6%,transparent), transparent 40%),
+    linear-gradient(135deg,var(--bg),color-mix(in srgb,var(--bg) 94%,var(--panel-alt)));
   color:var(--text);
   font-family:var(--font-ui);
   -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  font-kerning:normal;
+  text-rendering:optimizeLegibility;
   overflow:hidden;
   transition:background .15s ease, color .15s ease;
 }
@@ -120,7 +130,7 @@ button:active:not(:disabled){ transform:translateY(0) scale(.98); }
 button:disabled{ cursor:not-allowed; }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
 select{
-  border-radius:6px;
+  border-radius:8px;
   transition:border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
 }
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):hover:not(:disabled),
@@ -137,6 +147,36 @@ button:focus-visible{
   outline:none;
   box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 22%,transparent);
 }
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible,
+input[type="range"]:focus-visible{
+  outline:2px solid var(--amber);
+  outline-offset:2px;
+}
+.universe-select,
+.search-input,
+.settings-input,
+.settings-select,
+.topbar-right .topbar-select{
+  box-shadow:var(--control-shadow);
+}
+.universe-select:hover:not(:disabled),
+.search-input:hover:not(:disabled),
+.settings-input:hover:not(:disabled),
+.settings-select:hover:not(:disabled),
+.topbar-right .topbar-select:hover:not(:disabled){
+  background-color:var(--panel);
+}
+.topbar-right .topbar-select:focus{
+  outline:none;
+  border-color:var(--amber);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 22%,transparent);
+}
+.search-input::placeholder,
+.settings-input::placeholder{
+  color:var(--text-faint);
+  opacity:.8;
+}
 a{ color:inherit; }
 input[type="checkbox"]{ accent-color:var(--amber); }
 
@@ -150,10 +190,6 @@ input[type="checkbox"]{ accent-color:var(--amber); }
 
 :root[data-theme="dark"] body{
   font-weight:500;
-  /* Thin sans-serif glyphs render a touch too light on dark backgrounds
-     (subpixel/ClearType artifact) — this nudges stroke weight up slightly
-     without actually changing font-weight further. */
-  text-shadow:0 0 0.35px rgba(255,255,255,.4);
 }
 :root[data-theme="dark"] .sector,
 :root[data-theme="dark"] .panel-label,
