@@ -27,7 +27,7 @@ public class HomeController : Controller
             ["niftysmallcap100"] = "ind_niftysmallcap100list.csv",
             ["niftysmallcap250"] = "ind_niftysmallcap250list.csv",
             ["niftybank"] = "ind_niftybanklist.csv",
-            ["niftyfinancialservices"] = "ind_niftyfinancialserviceslist.csv",
+            ["niftyfinancialservices"] = "ind_niftyfinancelist.csv",
             ["niftyit"] = "ind_niftyitlist.csv",
             ["niftyauto"] = "ind_niftyautolist.csv",
             ["niftyfmcg"] = "ind_niftyfmcglist.csv",
@@ -37,27 +37,27 @@ public class HomeController : Controller
             ["niftyrealty"] = "ind_niftyrealtylist.csv",
             ["niftyenergy"] = "ind_niftyenergylist.csv",
             ["niftypsubank"] = "ind_niftypsubanklist.csv",
-            ["niftyprivatebank"] = "ind_niftyprivatebanklist.csv",
+            ["niftyprivatebank"] = "ind_nifty_privatebanklist.csv",
             ["niftyhealthcare"] = "ind_niftyhealthcarelist.csv",
             ["niftyconsumerdurables"] = "ind_niftyconsumerdurableslist.csv",
             ["niftyoilgas"] = "ind_niftyoilgaslist.csv",
-            ["niftyfinancialservices2550"] = "ind_niftyfinancialservices2550list.csv",
-            ["niftyfinancialservicesexbank"] = "ind_niftyfinancialservicesexbanklist.csv",
-            ["niftychemicals"] = "ind_niftychemicalslist.csv",
-            ["niftycapitalmarkets"] = "ind_niftycapitalmarketslist.csv",
+            ["niftyfinancialservices2550"] = "ind_niftyfinancialservices25-50list.csv",
+            ["niftyfinancialservicesexbank"] = "ind_niftyfinancialservicesexbank_list.csv",
+            ["niftychemicals"] = "ind_niftyChemicals_list.csv",
+            ["niftycapitalmarkets"] = "ind_niftyCapitalMarkets_list.csv",
             ["niftycommodities"] = "ind_niftycommoditieslist.csv",
             ["niftyconsumption"] = "ind_niftyconsumptionlist.csv",
             ["niftycpse"] = "ind_niftycpselist.csv",
             ["niftyinfrastructure"] = "ind_niftyinfralist.csv",
             ["niftypse"] = "ind_niftypselist.csv",
-            ["niftyservicessector"] = "ind_niftyservsectorlist.csv",
+            ["niftyservicessector"] = "ind_niftyservicelist.csv",
             ["niftymnc"] = "ind_niftymnclist.csv",
-            ["niftyhousing"] = "ind_niftyhousinglist.csv",
-            ["niftyindiadefence"] = "ind_niftyindiadefencelist.csv",
-            ["niftyindiadigital"] = "ind_niftyindiadigitallist.csv",
-            ["niftyindiatourism"] = "ind_niftyindiatourismlist.csv",
-            ["niftyindiamanufacturing"] = "ind_niftyindiamanufacturinglist.csv",
-            ["niftyrural"] = "ind_niftyrurallist.csv",
+            ["niftyhousing"] = "ind_niftyhousing_list.csv",
+            ["niftyindiadefence"] = "ind_niftyindiadefence_list.csv",
+            ["niftyindiadigital"] = "ind_niftyindiadigital_list.csv",
+            ["niftyindiatourism"] = "ind_niftyindiatourism_list.csv",
+            ["niftyindiamanufacturing"] = "ind_niftyindiamanufacturing_list.csv",
+            ["niftyrural"] = "ind_niftyRural_list.csv",
             ["niftyindiafpi150"] = "ind_niftyIndiaFPI150_list.csv",
             ["niftymidcapselect"] = "ind_niftymidcapselect_list.csv",
             ["niftymidsmallcap4005050"] = "ind_niftyMidSmallcap4005050_list.csv",
@@ -221,6 +221,12 @@ public class HomeController : Controller
             if (lines.Length < 2)
             {
                 return StatusCode(502, new { error = "NSE returned an empty index constituent list" });
+            }
+
+            var headers = ParseCsvLine(lines[0]);
+            if (!headers.Any(header => string.Equals(header.Trim(), "Symbol", StringComparison.OrdinalIgnoreCase)))
+            {
+                return StatusCode(502, new { error = "NSE returned an invalid index constituent file" });
             }
 
             var symbols = lines.Skip(1)
