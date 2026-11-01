@@ -121,7 +121,6 @@ input[type="checkbox"]{ accent-color:var(--amber); }
   text-shadow:0 0 0.35px rgba(255,255,255,.4);
 }
 :root[data-theme="dark"] .sector,
-:root[data-theme="dark"] .company-name,
 :root[data-theme="dark"] .panel-label,
 :root[data-theme="dark"] .row-hint{
   font-weight:500;
@@ -664,14 +663,6 @@ kbd{
   max-width:34vw;
   letter-spacing:.02em;
   line-height:1.15;
-}
-.sym-block .company-name{
-  font-size:9.5px;
-  color:var(--text-faint);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:34vw;
 }
 .sym-block .company-meta{
   font-size:8.5px;
@@ -1466,7 +1457,6 @@ kbd{
     grid-template-rows:none !important;
     grid-auto-rows:minmax(180px,1fr);
   }
-  .sym-block .company-name{ max-width:28vw; }
 }
 
 @media (max-width: 760px){
@@ -1486,7 +1476,6 @@ kbd{
     z-index:30;
   }
   .scrim.show{ display:block; }
-  .sym-block .company-name{ display:none; }
   .price-block{ min-width:80px; }
   .topbar{ padding:0 9px; }
   .topbar-right{ gap:3px; }

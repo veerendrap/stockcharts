@@ -1820,9 +1820,8 @@ function candleColors() {
     currentStock = stock;
     rememberSelectedSymbol(stock);
     $("#topbarInfo").show();
-    $(".big-sym .symtext").text(stock.s.replace(/^\^/, ""));
+    $(".big-sym .symtext").text(stock.s.replace(/^\^/, "")).attr("title", stock.n);
     $(".sector-name").text(stock.i || "—");
-    $(".company-name").text(stock.n);
     $(".company-meta").text(stock.i ? `Sector • ${stock.i}` : "—");
     $("#priceBlock").html("");
     Object.keys(candleCache).forEach((k) => delete candleCache[k]);
