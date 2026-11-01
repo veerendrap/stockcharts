@@ -604,7 +604,7 @@
 
   $(document).on("click", ".stock-row", function () {
     const idx = parseInt($(this).data("idx"), 10);
-    selectByFilteredIndex(idx);
+    selectByFilteredIndex(idx, false);
     closeSidebarOnMobile();
   });
 
@@ -671,12 +671,12 @@
      4. Selecting a symbol (click, next/prev, keyboard, pinned/custom)
      --------------------------------------------------------- */
 
-  function selectByFilteredIndex(idx) {
+  function selectByFilteredIndex(idx, ensureVisible = true) {
     if (idx < 0 || idx >= filtered.length) return;
     activeIndex = idx;
     const stock = filtered[idx];
     setAnalysisView(false);
-    highlightActiveRow();
+    highlightActiveRow(ensureVisible);
     loadSymbol(stock);
     updateNavButtons();
   }
@@ -1819,7 +1819,6 @@ function candleColors() {
   function loadSymbol(stock) {
     currentStock = stock;
     rememberSelectedSymbol(stock);
-    $("#placeholder").hide();
     $("#topbarInfo").show();
     $(".big-sym .symtext").text(stock.s.replace(/^\^/, ""));
     $(".sector-name").text(stock.i || "—");
