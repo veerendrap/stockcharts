@@ -183,7 +183,7 @@
 
     STOCKS = data.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
     updateMarketBreadth();
-    renderList(STOCKS, "");
+    renderList(STOCKS, "", true);
     refreshFilteredList();
     syncPendingSymbols(STOCKS);
 
@@ -232,7 +232,7 @@
       STOCKS = stocks.filter((stock) => stock && !INVALID_SYMBOLS.has(String(stock.s || "").trim().toUpperCase()));
       updateMarketBreadth();
       $("#indexLoadStatus").text(`${$("#indexSelect option:selected").text()}: ${STOCKS.length} constituents`);
-      renderList(STOCKS, "");
+      renderList(STOCKS, "", true);
       refreshFilteredList();
       if (syncInProgress) {
         universeSyncPending = true;
@@ -267,8 +267,9 @@
       !knownStocks.some((stock) => String(stock.s || "").trim().toUpperCase() === symbol);
   }
 
-  function renderList(list, query) {
+  function renderList(list, query, resetScroll = false) {
     const $list = $("#stockList");
+    const scrollTop = resetScroll ? 0 : $list.scrollTop();
     const canAdd = canAddCustomSymbol(query);
     $("#addSymbolBtn").toggleClass("visible", !list.length && canAdd);
     if (!list.length) {
@@ -281,10 +282,12 @@
               : `<div class="empty-hint">No match for <b>${escapeHtml(query)}</b>.</div>`
           : `<div class="empty-hint">No symbols match your search.</div>`
       );
+      $list.scrollTop(scrollTop);
       return;
     }
     const rows = list.map((s, i) => rowHtml(s, i));
     $list.html(rows.join(""));
+    $list.scrollTop(scrollTop);
   }
 
   function rowHtml(s, i) {
@@ -594,7 +597,7 @@
       activeIndex = -1;
     }
 
-    highlightActiveRow();
+    highlightActiveRow(false);
     updateNavButtons();
     if (window.StockPrediction) StockPrediction.renderUniverse(filtered, quoteCache, currentStock);
   }
@@ -701,12 +704,12 @@
     closeSidebarOnMobile();
   });
 
-  function highlightActiveRow() {
+  function highlightActiveRow(ensureVisible = true) {
     $(".stock-row, .pinned-row").removeClass("active");
     if (activeIndex >= 0 && filtered[activeIndex]) {
       const $row = $(`.stock-row[data-sym="${filtered[activeIndex].s}"]`);
       $row.addClass("active");
-      if ($row.length) {
+      if ($row.length && ensureVisible) {
         const $list = $("#stockList");
         const rowTop = $row.position().top + $list.scrollTop();
         const rowBottom = rowTop + $row.outerHeight();
@@ -2482,7 +2485,7 @@ function candleColors() {
     const highGap = high && high > 0 ? ((last.close - high) / high) * 100 : null;
     const gapHtml = highGap == null
       ? ""
-      : `<div class="price-meta ${highGap < 0 ? "down" : highGap > 0 ? "up" : "flat"}">${highGap < 0 ? "↓" : highGap > 0 ? "↑" : "•"} ${fmtPercent(Math.abs(highGap))} 52W</div>`;
+      : `<div class="price-meta ${highGap < 0 ? "down" : highGap > 0 ? "up" : "flat"}">${highGap < 0 ? "↓" : highGap > 0 ? "↑" : "•"} ${fmtPercent(Math.abs(highGap).toFixed(1))} 52W</div>`;
     $("#priceBlock").html(gapHtml || `<div class="price-meta flat">—</div>`);
   }
 

@@ -238,6 +238,7 @@ html:fullscreen .app{
 }
 .universe-select:focus-visible{ outline:2px solid var(--amber); outline-offset:1px; }
 .universe-select:disabled{ opacity:.65; }
+.universe-select option.new-index{ color:var(--text-dim); }
 .universe-row .icon-btn:disabled{ opacity:.45; cursor:not-allowed; }
 .index-load-status{
   min-height:0;
@@ -619,7 +620,7 @@ kbd{
 .topbar-left{
   display:flex;
   align-items:center;
-  gap:11px;
+  gap:2px;
   min-width:0;
 }
 .menu-toggle{
