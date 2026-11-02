@@ -7,17 +7,19 @@
 
 <script>
   // Applied before CSS/paint so a saved theme/density never flashes the
-  // wrong value. Defaults (light theme, compact density) need no attribute
-  // since the stylesheet's :root already defines them.
+  // wrong value. The light theme and compact density are defaults unless a
+  // saved preference overrides them.
   (function () {
     try {
       var raw = localStorage.getItem('nseCharts.settings');
       var s = raw ? JSON.parse(raw) : null;
       var theme = (s && s.theme) || 'light';
       var density = (s && s.density) || 'compact';
-      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
       if (density === 'spacious') document.documentElement.setAttribute('data-density', 'spacious');
-    } catch (e) { /* localStorage unavailable — fall back to defaults */ }
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
   })();
 </script>
 
