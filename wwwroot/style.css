@@ -1165,7 +1165,7 @@ kbd{
   position:relative;
   background:var(--chart-background);
   border:1px solid var(--chart-border);
-  border-radius:18px;
+  border-radius:8px;
   overflow:hidden;
   display:flex;
   flex-direction:column;
