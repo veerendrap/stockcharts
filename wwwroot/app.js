@@ -868,7 +868,7 @@
 
       const host = document.getElementById(`host-${tf.key}`);
       const levelsHost = panel[0].querySelector(".prediction-levels");
-      const chart = LightweightCharts.createChart(host, chartOptions());
+      const chart = LightweightCharts.createChart(host, chartOptions(tf.key));
 
       const volSeries = chart.addHistogramSeries({
         priceFormat: { type: "volume" },
@@ -1080,7 +1080,7 @@ function candleColors() {
     return { type: "price", precision, minMove: 1 / Math.pow(10, precision) };
   }
 
-  function chartOptions() {
+  function chartOptions(tfKey) {
     const border = cssVar("--border");
     const isMobile = window.innerWidth <= 760;
     return {
@@ -1106,13 +1106,23 @@ function candleColors() {
         barSpacing: 4,
         rightOffset: 2,
         tickMarkPadding: 2,
-        tickMarkFormatter: (time) => { if (!time) return ""; const d = new Date(time * 1000); return isMobile ? `${d.getMonth() + 1}/${d.getDate()}` : d.toLocaleDateString(); }
+        tickMarkFormatter: (time) => formatChartTick(time, tfKey, isMobile)
       },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       autoSize: false,
       handleScroll: true,
       handleScale: true
     };
+  }
+
+  function formatChartTick(time, tfKey, isMobile) {
+    if (!time) return "";
+    const date = new Date(time * 1000);
+    const timeZone = candleMetaCache[tfKey]?.exchangeTimezoneName;
+    if (isMobile) {
+      return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric", timeZone });
+    }
+    return date.toLocaleDateString(undefined, { timeZone });
   }
 
   // RSI/MFI share an oscillator scale while MACD uses a separate scale, stacked
@@ -1786,7 +1796,7 @@ function candleColors() {
     TIMEFRAMES.forEach((tf) => {
       const c = charts[tf.key];
       if (!c) return;
-      c.chart.applyOptions(chartOptions());
+      c.chart.applyOptions(chartOptions(tf.key));
       c.series.applyOptions(candleColors());
       c.smaSeries.applyOptions({ color: cssVar("--sma") });
       c.stSeries.applyOptions({ color: cssVar("--candle-up") });

@@ -101,18 +101,65 @@ window.DataSources = (function () {
       if (!result || !result.timestamp) return [];
       const ts = result.timestamp;
       const q = result.indicators.quote[0];
+      const meta = result.meta || {};
       const out = [];
       for (let i = 0; i < ts.length; i++) {
-        if (q.open[i] == null || q.high[i] == null || q.low[i] == null || q.close[i] == null) continue;
+        const close = q.close[i] == null && i === ts.length - 1
+          ? meta.regularMarketPrice
+          : q.close[i];
+        if (q.open[i] == null || q.high[i] == null || q.low[i] == null || close == null) continue;
+        if (q.close[i] == null && (close < q.low[i] || close > q.high[i])) continue;
         out.push({
           time: ts[i],
-          open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i],
+          open: q.open[i], high: q.high[i], low: q.low[i], close,
           volume: q.volume && q.volume[i] != null ? q.volume[i] : 0
         });
       }
+
+      const interval = meta.dataGranularity;
+      if ((interval === "1wk" || interval === "1mo") && out.length > 1 &&
+          out[out.length - 1].time === meta.regularMarketTime &&
+          isSameCandlePeriod(out[out.length - 2].time, out[out.length - 1].time, interval, meta.exchangeTimezoneName)) {
+        const periodCandle = out[out.length - 2];
+        const latestQuote = out.pop();
+        periodCandle.high = Math.max(periodCandle.high, latestQuote.high);
+        periodCandle.low = Math.min(periodCandle.low, latestQuote.low);
+        periodCandle.close = latestQuote.close;
+        periodCandle.volume += latestQuote.volume;
+      }
+
       return out;
     }
   };
+
+  function isSameCandlePeriod(firstTime, secondTime, interval, timeZone) {
+    if (!timeZone) return false;
+    const dateParts = (time) => {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date(time * 1000));
+      const values = {};
+      parts.forEach((part) => {
+        if (part.type !== "literal") values[part.type] = Number(part.value);
+      });
+      return values;
+    };
+    const first = dateParts(firstTime);
+    const second = dateParts(secondTime);
+    if (interval === "1mo") {
+      return first.year === second.year && first.month === second.month;
+    }
+
+    const weekStart = ({ year, month, day }) => {
+      const date = Date.UTC(year, month - 1, day);
+      const weekday = new Date(date).getUTCDay();
+      return date - ((weekday + 6) % 7) * 86400000;
+    };
+    return weekStart(first) === weekStart(second);
+  }
 
   // Google Finance was considered and deliberately left out: Google shut
   // down its public Finance API in 2012 and never replaced it. The
